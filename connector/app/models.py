@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Dict, Any, Literal, Union
 from pydantic import BaseModel, Field
 
 
@@ -63,6 +63,62 @@ class ChatResponse(BaseModel):
     message: str
     sql: Optional[str]
     has_query: bool
+
+
+class QueryResultContext(BaseModel):
+    name: str
+    columns: List[str]
+    rows: List[List[Any]]
+
+
+class ResultsContext(BaseModel):
+    results: List[QueryResultContext]
+
+
+class ChatOrchestratorRequest(BaseModel):
+    datasetId: str
+    conversationId: str
+    message: str
+    resultsContext: Optional[ResultsContext] = None
+
+
+class AuditInfo(BaseModel):
+    sharedWithAI: List[str] = Field(default_factory=lambda: ["schema", "aggregates_only"])
+
+
+class NeedsClarificationResponse(BaseModel):
+    type: Literal["needs_clarification"] = "needs_clarification"
+    question: str
+    choices: List[str]
+    audit: AuditInfo = Field(default_factory=AuditInfo)
+
+
+class QueryToRun(BaseModel):
+    name: str
+    sql: str
+
+
+class RunQueriesResponse(BaseModel):
+    type: Literal["run_queries"] = "run_queries"
+    queries: List[QueryToRun]
+    explanation: str
+    audit: AuditInfo = Field(default_factory=AuditInfo)
+
+
+class TableData(BaseModel):
+    title: str
+    columns: List[str]
+    rows: List[List[Any]]
+
+
+class FinalAnswerResponse(BaseModel):
+    type: Literal["final_answer"] = "final_answer"
+    message: str
+    tables: Optional[List[TableData]] = None
+    audit: AuditInfo = Field(default_factory=AuditInfo)
+
+
+ChatOrchestratorResponse = Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]
 
 
 class Job(BaseModel):

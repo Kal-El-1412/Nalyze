@@ -322,6 +322,107 @@ Quick preview of the first N rows from a dataset for debugging and inspection.
 
 **Note:** For production queries, use the `/queries/execute` endpoint instead.
 
+### Chat (MVP Orchestrator)
+```
+POST /chat
+```
+Conversational interface for data analysis that orchestrates the query workflow without requiring OpenAI (MVP stub).
+
+**Request Body:**
+```json
+{
+  "datasetId": "uuid",
+  "conversationId": "uuid",
+  "message": "Show me monthly trends",
+  "resultsContext": {
+    "results": [
+      {
+        "name": "monthly_trend",
+        "columns": ["month", "total"],
+        "rows": [
+          ["2024-01", 1500],
+          ["2024-02", 1800]
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Response Types:**
+
+**1. needs_clarification** - When more information is needed:
+```json
+{
+  "type": "needs_clarification",
+  "question": "Dataset is not ingested yet. Run ingestion now?",
+  "choices": ["Ingest now"],
+  "audit": {
+    "sharedWithAI": ["schema", "aggregates_only"]
+  }
+}
+```
+
+**2. run_queries** - When queries should be executed:
+```json
+{
+  "type": "run_queries",
+  "queries": [
+    {
+      "name": "monthly_trend",
+      "sql": "SELECT DATE_TRUNC('month', date) as month, COUNT(*) as count FROM data GROUP BY month"
+    }
+  ],
+  "explanation": "I'll analyze the monthly trends using the date column.",
+  "audit": {
+    "sharedWithAI": ["schema", "aggregates_only"]
+  }
+}
+```
+
+**3. final_answer** - When presenting results:
+```json
+{
+  "type": "final_answer",
+  "message": "I found 1 result:\n\n**monthly_trend**: 12 rows returned\n  (showing first 5 of 12 rows)",
+  "tables": [
+    {
+      "title": "monthly_trend",
+      "columns": ["month", "count"],
+      "rows": [
+        ["2024-01", 150],
+        ["2024-02", 180],
+        ["2024-03", 165]
+      ]
+    }
+  ],
+  "audit": {
+    "sharedWithAI": ["schema", "aggregates_only"]
+  }
+}
+```
+
+**Behavior:**
+- If dataset not ingested → returns `needs_clarification` asking to run ingestion
+- If message contains "monthly" or "trend" → returns `run_queries` with auto-generated SQL based on detected date/numeric columns
+- If no date column detected → returns `needs_clarification` asking which column is the date
+- If no numeric column detected → returns `needs_clarification` asking which column is the metric
+- If `resultsContext` provided → returns `final_answer` with summary and tables
+
+**MVP Features:**
+- Stateless orchestration (no AI calls yet)
+- Automatic column detection from catalog
+- Generic query generation for trends
+- Result summarization with first 5 rows preview
+- Privacy audit tracking
+
+**Use Cases:**
+- Testing the full chat UI workflow
+- Quick trend analysis without writing SQL
+- Guided data exploration
+
+**Note:** This is an MVP stub. OpenAI integration for natural language understanding will be added in future iterations.
+
 ## Supported File Formats
 
 ### CSV (Recommended)

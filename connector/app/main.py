@@ -17,11 +17,16 @@ from app.models import (
     Catalog,
     QueryExecuteRequest,
     QueryExecuteResponse,
-    PreviewResponse
+    PreviewResponse,
+    ChatOrchestratorRequest,
+    NeedsClarificationResponse,
+    RunQueriesResponse,
+    FinalAnswerResponse
 )
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
 from app.query import query_executor, QueryTimeoutError
+from app.chat_orchestrator import chat_orchestrator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -271,4 +276,22 @@ async def preview_dataset(dataset_id: str, limit: int = 100):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Preview failed: {str(e)}"
+        )
+
+
+@app.post("/chat")
+async def chat(request: ChatOrchestratorRequest):
+    logger.info(
+        f"Chat request for dataset {request.datasetId}, "
+        f"conversation {request.conversationId}"
+    )
+
+    try:
+        response = await chat_orchestrator.process(request)
+        return response
+    except Exception as e:
+        logger.error(f"Chat orchestrator error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chat processing failed: {str(e)}"
         )
