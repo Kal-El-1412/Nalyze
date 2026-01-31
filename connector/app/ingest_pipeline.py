@@ -9,6 +9,7 @@ from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
 from app.storage import storage
+from app.pii_detector import pii_detector
 
 logger = logging.getLogger(__name__)
 
@@ -295,13 +296,21 @@ class IngestionPipeline:
                 stats = self._get_text_stats(conn, col_name, row_count)
                 basic_stats[col_name] = stats
 
+        logger.info("Running PII detection on dataset sample")
+        sample_size = min(1000, row_count)
+        data_sample = conn.execute(f"SELECT * FROM data LIMIT {sample_size}").fetchall()
+
+        pii_columns = pii_detector.scan_dataset(columns, data_sample)
+        pii_columns_dict = [pii.to_dict() for pii in pii_columns]
+
         catalog = {
             "table": "data",
             "rowCount": row_count,
             "columns": columns,
             "basicStats": basic_stats,
             "detectedDateColumns": detected_date_columns,
-            "detectedNumericColumns": detected_numeric_columns
+            "detectedNumericColumns": detected_numeric_columns,
+            "piiColumns": pii_columns_dict
         }
 
         return catalog

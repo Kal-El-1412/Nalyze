@@ -7,10 +7,10 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
 - **Privacy-First**: All data processing happens locally on your machine
 - **AI-Powered Chat**: Natural language queries powered by OpenAI (schema-only sharing)
 - **SQL Safety**: Server-side validation with keyword blocking and LIMIT enforcement
+- **PII Detection**: Automatic detection of emails, phone numbers, and names with masking utilities
 - **DuckDB Integration**: Fast analytical queries on CSV, Excel, and Parquet files
 - **Local Filesystem Storage**: Dataset registry and job tracking stored in `~/.cloaksheets/`
 - **RESTful API**: Clean API interface for the frontend application
-- **PII Detection**: Built-in patterns for detecting sensitive data
 
 ## Architecture
 
@@ -331,6 +331,68 @@ Quick preview of the first N rows from a dataset for debugging and inspection.
 - Debugging data quality issues
 
 **Note:** For production queries, use the `/queries/execute` endpoint instead.
+
+### Get PII Information
+```
+GET /datasets/{datasetId}/pii
+```
+Retrieve detected PII columns from the dataset catalog.
+
+**Response:**
+```json
+{
+  "datasetId": "abc-123",
+  "piiColumns": [
+    {
+      "name": "email",
+      "type": "email",
+      "confidence": 0.95
+    },
+    {
+      "name": "phone_number",
+      "type": "phone",
+      "confidence": 0.87
+    },
+    {
+      "name": "customer_name",
+      "type": "name",
+      "confidence": 0.72
+    }
+  ]
+}
+```
+
+**PII Types:**
+- `email` - Email addresses (pattern: user@domain.com)
+- `phone` - Phone numbers (various formats including international)
+- `name` - Full names (heuristic: capitalized multi-word text)
+
+**Confidence Scores:**
+- 0.0 - 0.3: Low confidence (not reported)
+- 0.3 - 0.6: Medium confidence
+- 0.6 - 0.8: High confidence
+- 0.8 - 1.0: Very high confidence
+
+**Detection Method:**
+- Runs automatically during ingestion
+- Samples up to 1,000 rows for pattern matching
+- Uses regex patterns and heuristics
+- Results stored in catalog.json
+
+**Privacy Notes:**
+- PII detection is local-only
+- Raw data never leaves your machine
+- Masking utilities available for future "sample sharing" feature (not in MVP)
+- Masking examples:
+  - Email: `john@example.com` → `j***@example.com`
+  - Phone: `0412345678` → `04******78`
+  - Name: `John Smith` → `Person_a3f8b9c1`
+
+**Use Cases:**
+- Identify sensitive columns before sharing analysis
+- Audit data privacy compliance
+- Guide data handling policies
+- Alert users to potential PII in datasets
 
 ### Chat (Privacy-First AI Orchestrator)
 ```

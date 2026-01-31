@@ -18,6 +18,7 @@ from app.models import (
     QueryExecuteRequest,
     QueryExecuteResponse,
     PreviewResponse,
+    PIIInfoResponse,
     ChatOrchestratorRequest,
     NeedsClarificationResponse,
     RunQueriesResponse,
@@ -276,6 +277,44 @@ async def preview_dataset(dataset_id: str, limit: int = 100):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Preview failed: {str(e)}"
+        )
+
+
+@app.get("/datasets/{dataset_id}/pii", response_model=PIIInfoResponse)
+async def get_pii_info(dataset_id: str):
+    logger.info(f"PII info requested for dataset {dataset_id}")
+
+    dataset = await storage.get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset not found: {dataset_id}"
+        )
+
+    if dataset["status"] != "ingested":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Dataset {dataset_id} has not been ingested yet. Current status: {dataset['status']}"
+        )
+
+    try:
+        catalog = await ingestion_pipeline.load_catalog(dataset_id)
+        pii_columns = catalog.get("piiColumns", [])
+
+        return PIIInfoResponse(
+            datasetId=dataset_id,
+            piiColumns=pii_columns
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Catalog not found for dataset {dataset_id}"
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving PII info: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve PII info: {str(e)}"
         )
 
 

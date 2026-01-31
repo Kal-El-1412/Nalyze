@@ -179,6 +179,12 @@ class ColumnStats(BaseModel):
     approxDistinct: Optional[int] = None
 
 
+class PIIColumnInfo(BaseModel):
+    name: str
+    type: Literal["email", "phone", "name"]
+    confidence: float = Field(..., ge=0.0, le=1.0)
+
+
 class Catalog(BaseModel):
     table: str
     rowCount: int
@@ -186,6 +192,7 @@ class Catalog(BaseModel):
     basicStats: Dict[str, ColumnStats]
     detectedDateColumns: List[str]
     detectedNumericColumns: List[str]
+    piiColumns: List[PIIColumnInfo] = Field(default_factory=list)
 
 
 class QueryExecuteRequest(BaseModel):
@@ -208,3 +215,8 @@ class PreviewResponse(BaseModel):
     rows: List[List[Any]]
     totalRows: int
     returnedRows: int
+
+
+class PIIInfoResponse(BaseModel):
+    datasetId: str
+    piiColumns: List[PIIColumnInfo]
