@@ -10,8 +10,22 @@ class HealthResponse(BaseModel):
 
 class DatasetRegisterRequest(BaseModel):
     name: str = Field(..., description="Human-readable name for the dataset")
-    file_path: str = Field(..., description="Absolute path to the spreadsheet file")
-    description: Optional[str] = Field(None, description="Optional description")
+    sourceType: Literal["local_file"] = Field("local_file", description="Type of data source")
+    filePath: str = Field(..., description="Absolute path to the spreadsheet file")
+
+
+class DatasetRegisterResponse(BaseModel):
+    datasetId: str
+
+
+class Dataset(BaseModel):
+    datasetId: str
+    name: str
+    sourceType: str
+    filePath: str
+    createdAt: str
+    lastIngestedAt: Optional[str]
+    status: Literal["registered", "ingested", "error"]
 
 
 class DatasetInfo(BaseModel):
@@ -49,6 +63,16 @@ class ChatResponse(BaseModel):
     message: str
     sql: Optional[str]
     has_query: bool
+
+
+class Job(BaseModel):
+    jobId: str
+    type: Literal["ingest"]
+    datasetId: str
+    status: Literal["queued", "running", "done", "error"]
+    startedAt: Optional[str]
+    finishedAt: Optional[str]
+    error: Optional[str]
 
 
 class JobInfo(BaseModel):

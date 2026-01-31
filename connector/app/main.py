@@ -1,11 +1,20 @@
 import logging
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from typing import List
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
-from app.models import HealthResponse
+from app.models import (
+    HealthResponse,
+    DatasetRegisterRequest,
+    DatasetRegisterResponse,
+    Dataset,
+    Job
+)
+from app.storage import storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -88,3 +97,42 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
+
+
+@app.post("/datasets/register", response_model=DatasetRegisterResponse, status_code=status.HTTP_201_CREATED)
+async def register_dataset(request: DatasetRegisterRequest):
+    logger.info(f"Registering dataset: {request.name} from {request.filePath}")
+
+    if not os.path.exists(request.filePath):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File does not exist: {request.filePath}"
+        )
+
+    if not os.path.isfile(request.filePath):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Path is not a file: {request.filePath}"
+        )
+
+    dataset = await storage.register_dataset(
+        name=request.name,
+        source_type=request.sourceType,
+        file_path=request.filePath
+    )
+
+    return DatasetRegisterResponse(datasetId=dataset["datasetId"])
+
+
+@app.get("/datasets", response_model=List[Dataset])
+async def list_datasets():
+    logger.debug("Listing all datasets")
+    datasets = await storage.list_datasets()
+    return datasets
+
+
+@app.get("/jobs", response_model=List[Job])
+async def list_jobs():
+    logger.debug("Listing all jobs")
+    jobs = await storage.list_jobs()
+    return jobs

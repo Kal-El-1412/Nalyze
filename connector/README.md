@@ -6,7 +6,7 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
 
 - **Privacy-First**: All data processing happens locally on your machine
 - **DuckDB Integration**: Fast analytical queries on CSV, Excel, and Parquet files
-- **Supabase Metadata Storage**: Dataset registry and job tracking stored securely
+- **Local Filesystem Storage**: Dataset registry and job tracking stored in `~/.cloaksheets/`
 - **RESTful API**: Clean API interface for the frontend application
 - **PII Detection**: Built-in patterns for detecting sensitive data
 
@@ -22,16 +22,16 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
                                      │ metadata
                                      ▼
                             ┌─────────────────┐
-                            │    Supabase     │
-                            │   (datasets,    │
-                            │     jobs)       │
+                            │ ~/.cloaksheets/ │
+                            │   registry.json │
+                            │  datasets/      │
+                            │  jobs/          │
                             └─────────────────┘
 ```
 
 ## Requirements
 
 - Python 3.11+
-- Supabase account (for metadata storage)
 - Local spreadsheet files (CSV, XLSX, XLS, Parquet)
 
 ## Installation
@@ -47,59 +47,7 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
    pip install -r requirements.txt
    ```
 
-3. **Set up environment variables**:
-   ```bash
-   cp .env.example .env
-   ```
-
-   Edit `.env` and add your Supabase credentials:
-   ```
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-4. **Set up the database** (see Database Setup below)
-
-## Database Setup
-
-You need to create two tables in your Supabase database:
-
-```sql
--- Datasets table
-CREATE TABLE datasets (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  file_path TEXT NOT NULL,
-  description TEXT,
-  row_count INTEGER,
-  column_count INTEGER,
-  columns JSONB,
-  status TEXT NOT NULL DEFAULT 'active',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Jobs table
-CREATE TABLE jobs (
-  id TEXT PRIMARY KEY,
-  dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-  job_type TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  progress REAL DEFAULT 0.0,
-  result JSONB,
-  error TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Enable RLS (Row Level Security)
-ALTER TABLE datasets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
-
--- Create policies (adjust based on your auth setup)
-CREATE POLICY "Allow all operations for now" ON datasets FOR ALL USING (true);
-CREATE POLICY "Allow all operations for now" ON jobs FOR ALL USING (true);
-```
+3. **Storage is automatic**: The connector automatically creates `~/.cloaksheets/` with the necessary directories and registry file on first run. No database setup needed!
 
 ## Running the Server
 
@@ -121,8 +69,76 @@ Once the server is running, visit:
 ```
 GET /health
 ```
-
 Returns the service status and version.
+
+### Register Dataset
+```
+POST /datasets/register
+```
+Register a new local spreadsheet file.
+
+**Request Body:**
+```json
+{
+  "name": "Sales Data",
+  "sourceType": "local_file",
+  "filePath": "/absolute/path/to/file.csv"
+}
+```
+
+**Response:**
+```json
+{
+  "datasetId": "uuid-string"
+}
+```
+
+**Validations:**
+- File path must exist
+- File path must point to a file (not a directory)
+- Duplicate file paths return the existing dataset ID
+
+### List Datasets
+```
+GET /datasets
+```
+Returns an array of all registered datasets.
+
+**Response:**
+```json
+[
+  {
+    "datasetId": "uuid",
+    "name": "Sales Data",
+    "sourceType": "local_file",
+    "filePath": "/path/to/file.csv",
+    "createdAt": "2024-01-31T12:00:00Z",
+    "lastIngestedAt": null,
+    "status": "registered"
+  }
+]
+```
+
+### List Jobs
+```
+GET /jobs
+```
+Returns an array of all jobs (ingestion, PII scans, etc.).
+
+**Response:**
+```json
+[
+  {
+    "jobId": "uuid",
+    "type": "ingest",
+    "datasetId": "uuid",
+    "status": "queued",
+    "startedAt": null,
+    "finishedAt": null,
+    "error": null
+  }
+]
+```
 
 ## Supported File Formats
 
@@ -134,8 +150,8 @@ Returns the service status and version.
 
 - All file operations are read-only
 - SQL queries are validated to prevent destructive operations
-- Files never leave your local machine (except metadata to Supabase)
-- Use environment variables for sensitive configuration
+- Files never leave your local machine (all data stays local)
+- Metadata is stored locally in `~/.cloaksheets/`
 
 ## Development
 
@@ -152,15 +168,15 @@ uvicorn app.main:app --reload --port 7337
 - Check firewall settings
 - Verify the frontend is configured with the correct URL
 
-### Database errors
-- Verify Supabase credentials in `.env`
-- Ensure database tables are created
-- Check RLS policies allow operations
+### File not found when registering dataset
+- Use absolute file paths (not relative paths)
+- Verify file permissions (must be readable)
+- Check file format is supported (CSV, XLSX, XLS, Parquet)
 
-### File not found
-- Use absolute file paths
-- Verify file permissions
-- Check file format is supported
+### Registry file errors
+- Check that you have write permissions in your home directory
+- The `~/.cloaksheets/` directory should be created automatically
+- Delete `~/.cloaksheets/registry.json` to reset (you'll lose registered datasets)
 
 ## License
 

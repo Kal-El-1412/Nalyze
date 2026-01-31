@@ -25,9 +25,9 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Environment is Already Configured
+### 2. Storage is Automatic
 
-The `.env` file is already set up with your Supabase credentials. The database tables have also been created automatically.
+The connector automatically creates `~/.cloaksheets/` directory with all necessary files on first run. No configuration needed!
 
 ### 3. Run the Server
 
