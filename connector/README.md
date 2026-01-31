@@ -235,6 +235,93 @@ Retrieve metadata and statistics about an ingested dataset.
 
 **Note:** Dataset must be ingested before catalog is available.
 
+### Execute Queries
+```
+POST /queries/execute
+```
+Execute one or more SQL queries against an ingested dataset with built-in safety controls.
+
+**Request Body:**
+```json
+{
+  "datasetId": "uuid",
+  "queries": [
+    {
+      "name": "total_revenue",
+      "sql": "SELECT SUM(amount) as total FROM data"
+    },
+    {
+      "name": "top_customers",
+      "sql": "SELECT customer_id, COUNT(*) as order_count FROM data GROUP BY customer_id ORDER BY order_count DESC"
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "name": "total_revenue",
+      "columns": ["total"],
+      "rows": [[15432.50]]
+    },
+    {
+      "name": "top_customers",
+      "columns": ["customer_id", "order_count"],
+      "rows": [
+        ["C001", 45],
+        ["C002", 38],
+        ["C003", 32]
+      ]
+    }
+  ]
+}
+```
+
+**Safety Features:**
+- **Automatic Row Limit:** Results limited to 5,000 rows (server-enforced)
+- **Dangerous Keywords Blocked:** DROP, DELETE, UPDATE, INSERT, ATTACH, COPY, EXPORT, CREATE, ALTER, TRUNCATE, REPLACE
+- **Query Timeout:** 10 second timeout per query
+- **Read-Only Connection:** Database opened in read-only mode
+
+**Error Responses:**
+- `400 Bad Request` - Dangerous SQL keyword detected or invalid query
+- `404 Not Found` - Dataset not found
+- `408 Request Timeout` - Query execution exceeded 10 second timeout
+- `500 Internal Server Error` - Query execution failed
+
+### Preview Dataset
+```
+GET /datasets/{datasetId}/preview?limit=100
+```
+Quick preview of the first N rows from a dataset for debugging and inspection.
+
+**Query Parameters:**
+- `limit` (optional, default: 100, max: 5000) - Number of rows to return
+
+**Response:**
+```json
+{
+  "columns": ["id", "name", "amount", "date"],
+  "rows": [
+    [1, "Alice", 150.50, "2024-01-15"],
+    [2, "Bob", 200.00, "2024-01-16"],
+    [3, "Charlie", 175.25, "2024-01-17"]
+  ],
+  "totalRows": 10000,
+  "returnedRows": 3
+}
+```
+
+**Use Cases:**
+- Quick data inspection during development
+- Verifying data structure after ingestion
+- Debugging data quality issues
+
+**Note:** For production queries, use the `/queries/execute` endpoint instead.
+
 ## Supported File Formats
 
 ### CSV (Recommended)

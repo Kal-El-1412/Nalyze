@@ -130,3 +130,25 @@ class Catalog(BaseModel):
     basicStats: Dict[str, ColumnStats]
     detectedDateColumns: List[str]
     detectedNumericColumns: List[str]
+
+
+class QueryExecuteRequest(BaseModel):
+    datasetId: str = Field(..., description="ID of the dataset to query")
+    queries: List[Dict[str, str]] = Field(..., description="List of queries with name and sql")
+
+
+class QueryResult(BaseModel):
+    name: str
+    columns: List[str]
+    rows: List[List[Any]]
+
+
+class QueryExecuteResponse(BaseModel):
+    results: List[QueryResult]
+
+
+class PreviewResponse(BaseModel):
+    columns: List[str]
+    rows: List[List[Any]]
+    totalRows: int
+    returnedRows: int

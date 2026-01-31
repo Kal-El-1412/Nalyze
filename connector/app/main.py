@@ -14,10 +14,14 @@ from app.models import (
     Dataset,
     Job,
     IngestResponse,
-    Catalog
+    Catalog,
+    QueryExecuteRequest,
+    QueryExecuteResponse,
+    PreviewResponse
 )
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
+from app.query import query_executor, QueryTimeoutError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -195,4 +199,76 @@ async def get_catalog(dataset_id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Catalog not found for dataset {dataset_id}. Dataset may not have been ingested yet."
+        )
+
+
+@app.post("/queries/execute", response_model=QueryExecuteResponse)
+async def execute_queries(request: QueryExecuteRequest):
+    logger.info(f"Execute queries requested for dataset {request.datasetId}, {len(request.queries)} queries")
+
+    dataset = await storage.get_dataset(request.datasetId)
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset not found: {request.datasetId}"
+        )
+
+    if dataset["status"] != "ingested":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Dataset {request.datasetId} has not been ingested yet. Current status: {dataset['status']}"
+        )
+
+    try:
+        results = await query_executor.execute_queries(request.datasetId, request.queries)
+        return QueryExecuteResponse(results=results)
+    except QueryTimeoutError as e:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Query execution error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Query execution failed: {str(e)}"
+        )
+
+
+@app.get("/datasets/{dataset_id}/preview", response_model=PreviewResponse)
+async def preview_dataset(dataset_id: str, limit: int = 100):
+    logger.info(f"Preview requested for dataset {dataset_id}, limit={limit}")
+
+    dataset = await storage.get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset not found: {dataset_id}"
+        )
+
+    if dataset["status"] != "ingested":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Dataset {dataset_id} has not been ingested yet. Current status: {dataset['status']}"
+        )
+
+    if limit < 1 or limit > 5000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Limit must be between 1 and 5000"
+        )
+
+    try:
+        result = await query_executor.get_preview(dataset_id, limit)
+        return PreviewResponse(**result)
+    except Exception as e:
+        logger.error(f"Preview error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Preview failed: {str(e)}"
         )
