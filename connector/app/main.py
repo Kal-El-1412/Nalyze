@@ -28,6 +28,8 @@ from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
 from app.query import query_executor, QueryTimeoutError
 from app.chat_orchestrator import chat_orchestrator
+from app.config import config
+from app.middleware import RequestLoggingMiddleware, RateLimitMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +73,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -99,7 +104,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     logger.debug("Health check requested")
-    return HealthResponse(status="ok", version=VERSION)
+    return HealthResponse(
+        status="ok",
+        version=VERSION,
+        config=config.get_safe_summary()
+    )
 
 
 @app.get("/")
@@ -334,3 +343,14 @@ async def chat(request: ChatOrchestratorRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Chat processing failed: {str(e)}"
         )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )

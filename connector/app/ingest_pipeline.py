@@ -10,6 +10,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 
 from app.storage import storage
 from app.pii_detector import pii_detector
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,6 @@ class IngestionPipeline:
     def __init__(self):
         self.base_dir = Path.home() / ".cloaksheets" / "datasets"
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.max_xlsx_size_mb = 200
         self.chunk_size = 10000
 
     def get_dataset_dir(self, dataset_id: str) -> Path:
@@ -124,10 +124,11 @@ class IngestionPipeline:
             file_size_mb = self._get_file_size_mb(file_path)
             logger.info(f"XLSX file size: {file_size_mb:.2f} MB")
 
-            if file_size_mb > self.max_xlsx_size_mb and not force:
+            max_size = config.xlsx_max_size_mb
+            if file_size_mb > max_size and not force:
                 error_msg = (
                     f"XLSX file is {file_size_mb:.2f} MB, which exceeds the recommended limit of "
-                    f"{self.max_xlsx_size_mb} MB. For better performance, please export to CSV format. "
+                    f"{max_size} MB. For better performance, please export to CSV format. "
                     f"Alternatively, you can force ingestion by adding ?force=true to the request."
                 )
                 raise ValueError(error_msg)

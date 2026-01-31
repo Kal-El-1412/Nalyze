@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class HealthResponse(BaseModel):
     status: str
     version: str
+    config: Optional[Dict[str, Any]] = None
 
 
 class DatasetRegisterRequest(BaseModel):

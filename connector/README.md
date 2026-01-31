@@ -61,11 +61,89 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
 
 ## Running the Server
 
+### Development Mode (with auto-reload)
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 7337 --reload
+python -m app.main
+```
+
+This starts the server on `http://127.0.0.1:8000` with auto-reload enabled.
+
+### Production Mode
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 7337
 ```
 
 The server will start on `http://localhost:7337`
+
+### Using Custom Port
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+## Configuration
+
+The connector automatically creates a configuration file at `~/.cloaksheets/config.json` with default settings. You can edit this file to customize behavior.
+
+### Default Configuration
+
+```json
+{
+  "maxRowsReturn": 5000,
+  "queryTimeoutSec": 10,
+  "xlsxMaxSizeMb": 200,
+  "rateLimitRequestsPerMinute": 60
+}
+```
+
+### Configuration Options
+
+- **maxRowsReturn** (default: 5000): Maximum number of rows returned from any query
+- **queryTimeoutSec** (default: 10): Query execution timeout in seconds
+- **xlsxMaxSizeMb** (default: 200): Maximum XLSX file size for ingestion (can be bypassed with `?force=true`)
+- **rateLimitRequestsPerMinute** (default: 60): Rate limit per client IP address
+
+### Environment Variables
+
+Required:
+- `OPENAI_API_KEY`: Your OpenAI API key for chat functionality
+- `SUPABASE_URL`: Supabase project URL (for metadata storage)
+- `SUPABASE_ANON_KEY`: Supabase anonymous key
+
+Optional:
+- `OPENAI_MODEL`: OpenAI model to use (default: gpt-4)
+- `LOG_LEVEL`: Logging level (default: INFO)
+
+Copy `.env.example` to `.env` and fill in your values:
+```bash
+cp .env.example .env
+```
+
+## Production Hardening Features
+
+### Request Logging
+All requests are logged with correlation IDs for tracing:
+- Chat requests use `conversationId` as correlation ID
+- Other requests get auto-generated UUIDs
+- Each response includes `X-Correlation-ID` header
+
+### Rate Limiting
+- In-memory rate limiter per client IP
+- Configurable via `rateLimitRequestsPerMinute` in config
+- Response headers include:
+  - `X-RateLimit-Limit`: Maximum requests per minute
+  - `X-RateLimit-Remaining`: Remaining requests in current window
+- Returns `429 Too Many Requests` when limit exceeded
+
+### Query Safety
+- Dangerous SQL keywords blocked (DROP, DELETE, UPDATE, INSERT, etc.)
+- Auto-wraps queries without LIMIT clause
+- Enforces maximum row return limit
+- Configurable query timeout
+
+### File Size Limits
+- XLSX files checked against `xlsxMaxSizeMb` config
+- Can bypass with `?force=true` query parameter
+- CSV files have no size limit (streamed efficiently)
 
 ## API Documentation
 
@@ -79,13 +157,44 @@ Once the server is running, visit:
 ```
 GET /health
 ```
-Returns the service status and version.
+Returns the service status, version, and configuration summary.
+
+**Example:**
+```bash
+curl http://localhost:8000/health
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "config": {
+    "maxRowsReturn": 5000,
+    "queryTimeoutSec": 10,
+    "xlsxMaxSizeMb": 200,
+    "rateLimitRequestsPerMinute": 60,
+    "configPath": "/Users/username/.cloaksheets/config.json"
+  }
+}
+```
 
 ### Register Dataset
 ```
 POST /datasets/register
 ```
 Register a new local spreadsheet file.
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/datasets/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Sales Data",
+    "sourceType": "local_file",
+    "filePath": "/Users/username/Documents/sales.csv"
+  }'
+```
 
 **Request Body:**
 ```json
@@ -113,6 +222,11 @@ Register a new local spreadsheet file.
 GET /datasets
 ```
 Returns an array of all registered datasets.
+
+**Example:**
+```bash
+curl http://localhost:8000/datasets
+```
 
 **Response:**
 ```json
@@ -155,6 +269,15 @@ Returns an array of all jobs (ingestion, PII scans, etc.).
 POST /datasets/{datasetId}/ingest?force=false
 ```
 Start ingesting a registered dataset into DuckDB. This is a background operation that returns immediately.
+
+**Example:**
+```bash
+# Basic ingestion
+curl -X POST http://localhost:8000/datasets/{datasetId}/ingest
+
+# Force large XLSX file
+curl -X POST "http://localhost:8000/datasets/{datasetId}/ingest?force=true"
+```
 
 **Query Parameters:**
 - `force` (optional, default: `false`) - Force ingestion of large XLSX files that exceed the 200MB limit
@@ -251,6 +374,25 @@ POST /queries/execute
 ```
 Execute one or more SQL queries against an ingested dataset with built-in safety controls.
 
+**Example:**
+```bash
+curl -X POST http://localhost:8000/queries/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "datasetId": "abc-123",
+    "queries": [
+      {
+        "name": "total_revenue",
+        "sql": "SELECT SUM(amount) as total FROM data"
+      },
+      {
+        "name": "top_customers",
+        "sql": "SELECT customer_id, COUNT(*) as count FROM data GROUP BY customer_id ORDER BY count DESC LIMIT 10"
+      }
+    ]
+  }'
+```
+
 **Request Body:**
 ```json
 {
@@ -338,6 +480,11 @@ GET /datasets/{datasetId}/pii
 ```
 Retrieve detected PII columns from the dataset catalog.
 
+**Example:**
+```bash
+curl http://localhost:8000/datasets/abc-123/pii
+```
+
 **Response:**
 ```json
 {
@@ -399,6 +546,34 @@ Retrieve detected PII columns from the dataset catalog.
 POST /chat
 ```
 Conversational interface for data analysis powered by OpenAI with strict privacy enforcement.
+
+**Example:**
+```bash
+# Initial query
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "datasetId": "abc-123",
+    "conversationId": "conv-456",
+    "message": "What are the top 5 products by revenue?"
+  }'
+
+# Follow-up with results
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "datasetId": "abc-123",
+    "conversationId": "conv-456",
+    "message": "Show me monthly trends",
+    "resultsContext": {
+      "results": [{
+        "name": "top_products",
+        "columns": ["product", "revenue"],
+        "rows": [["Product A", 5000], ["Product B", 4500]]
+      }]
+    }
+  }'
+```
 
 **Request Body:**
 ```json

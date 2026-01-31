@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Tuple
 import duckdb
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +16,6 @@ DANGEROUS_KEYWORDS = [
     'CREATE', 'ALTER', 'TRUNCATE', 'REPLACE'
 ]
 
-MAX_ROWS = 5000
-QUERY_TIMEOUT_SECONDS = 10
-
 
 class QueryTimeoutError(Exception):
     pass
@@ -26,8 +24,6 @@ class QueryTimeoutError(Exception):
 class QueryExecutor:
     def __init__(self):
         self.connection_cache: Dict[str, duckdb.DuckDBPyConnection] = {}
-        self.max_rows = MAX_ROWS
-        self.query_timeout = QUERY_TIMEOUT_SECONDS
 
     def validate_sql(self, sql: str) -> Tuple[bool, str]:
         sql_upper = sql.upper()
@@ -45,7 +41,7 @@ class QueryExecutor:
         if 'LIMIT' in sql_upper:
             return sql
 
-        return f"SELECT * FROM ({sql}) LIMIT {self.max_rows}"
+        return f"SELECT * FROM ({sql}) LIMIT {config.max_rows_return}"
 
     async def get_connection(self, dataset_id: str, read_only: bool = True) -> duckdb.DuckDBPyConnection:
         if dataset_id in self.connection_cache:
@@ -84,7 +80,7 @@ class QueryExecutor:
         try:
             conn = await self.get_connection(dataset_id, read_only=True)
 
-            conn.execute(f"SET statement_timeout = '{self.query_timeout}s'")
+            conn.execute(f"SET statement_timeout = '{config.query_timeout_sec}s'")
 
             result = conn.execute(sql).fetchall()
             columns = [desc[0] for desc in conn.description] if conn.description else []
@@ -104,7 +100,7 @@ class QueryExecutor:
             }
 
         except duckdb.InterruptException:
-            raise QueryTimeoutError(f"Query execution exceeded {self.query_timeout} seconds timeout")
+            raise QueryTimeoutError(f"Query execution exceeded {config.query_timeout_sec} seconds timeout")
         except Exception as e:
             logger.error(f"Query execution error: {e}")
             raise
