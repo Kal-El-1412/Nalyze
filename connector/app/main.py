@@ -2,7 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from typing import List
-from fastapi import FastAPI, Request, status, HTTPException
+from fastapi import FastAPI, Request, status, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -12,9 +12,12 @@ from app.models import (
     DatasetRegisterRequest,
     DatasetRegisterResponse,
     Dataset,
-    Job
+    Job,
+    IngestResponse,
+    Catalog
 )
 from app.storage import storage
+from app.ingest_pipeline import ingestion_pipeline
 
 logging.basicConfig(
     level=logging.INFO,
@@ -136,3 +139,59 @@ async def list_jobs():
     logger.debug("Listing all jobs")
     jobs = await storage.list_jobs()
     return jobs
+
+
+@app.post("/datasets/{dataset_id}/ingest", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
+async def ingest_dataset(dataset_id: str, background_tasks: BackgroundTasks):
+    logger.info(f"Ingestion requested for dataset {dataset_id}")
+
+    dataset = await storage.get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset not found: {dataset_id}"
+        )
+
+    file_path = dataset["filePath"]
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File no longer exists: {file_path}"
+        )
+
+    job = await storage.create_job(
+        dataset_id=dataset_id,
+        job_type="ingest",
+        status="queued"
+    )
+
+    background_tasks.add_task(
+        ingestion_pipeline.ingest_csv,
+        dataset_id,
+        file_path,
+        job["jobId"]
+    )
+
+    logger.info(f"Background ingestion task queued for dataset {dataset_id}, job {job['jobId']}")
+    return IngestResponse(jobId=job["jobId"])
+
+
+@app.get("/datasets/{dataset_id}/catalog", response_model=Catalog)
+async def get_catalog(dataset_id: str):
+    logger.debug(f"Catalog requested for dataset {dataset_id}")
+
+    dataset = await storage.get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset not found: {dataset_id}"
+        )
+
+    try:
+        catalog = await ingestion_pipeline.load_catalog(dataset_id)
+        return catalog
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Catalog not found for dataset {dataset_id}. Dataset may not have been ingested yet."
+        )

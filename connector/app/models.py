@@ -104,3 +104,29 @@ class PIIScanResult(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: str
+
+
+class IngestResponse(BaseModel):
+    jobId: str
+
+
+class ColumnInfo(BaseModel):
+    name: str
+    type: str
+
+
+class ColumnStats(BaseModel):
+    min: Optional[Any] = None
+    max: Optional[Any] = None
+    avg: Optional[float] = None
+    nullPct: float
+    approxDistinct: Optional[int] = None
+
+
+class Catalog(BaseModel):
+    table: str
+    rowCount: int
+    columns: List[ColumnInfo]
+    basicStats: Dict[str, ColumnStats]
+    detectedDateColumns: List[str]
+    detectedNumericColumns: List[str]

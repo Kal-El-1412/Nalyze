@@ -140,6 +140,84 @@ Returns an array of all jobs (ingestion, PII scans, etc.).
 ]
 ```
 
+### Ingest Dataset
+```
+POST /datasets/{datasetId}/ingest
+```
+Start ingesting a registered dataset into DuckDB. This is a background operation that returns immediately.
+
+**Response:**
+```json
+{
+  "jobId": "uuid"
+}
+```
+
+**Behavior:**
+- Creates a DuckDB database at `~/.cloaksheets/datasets/{datasetId}/db.duckdb`
+- Loads CSV data into a table named `data`
+- Generates catalog with column statistics
+- Updates job status: `queued` → `running` → `done` or `error`
+- Updates dataset status to `ingested` on success
+
+**Job Statuses:**
+- `queued` - Job created, waiting to start
+- `running` - Currently processing the CSV
+- `done` - Ingestion completed successfully
+- `error` - Ingestion failed (check job.error field)
+
+### Get Dataset Catalog
+```
+GET /datasets/{datasetId}/catalog
+```
+Retrieve metadata and statistics about an ingested dataset.
+
+**Response:**
+```json
+{
+  "table": "data",
+  "rowCount": 1000,
+  "columns": [
+    {"name": "id", "type": "BIGINT"},
+    {"name": "amount", "type": "DOUBLE"},
+    {"name": "date", "type": "DATE"},
+    {"name": "description", "type": "VARCHAR"}
+  ],
+  "basicStats": {
+    "id": {
+      "min": 1,
+      "max": 1000,
+      "avg": 500.5,
+      "nullPct": 0
+    },
+    "amount": {
+      "min": 10.5,
+      "max": 999.99,
+      "avg": 250.75,
+      "nullPct": 2.5
+    },
+    "date": {
+      "min": "2024-01-01",
+      "max": "2024-12-31",
+      "nullPct": 0
+    },
+    "description": {
+      "nullPct": 5.2,
+      "approxDistinct": 850
+    }
+  },
+  "detectedDateColumns": ["date"],
+  "detectedNumericColumns": ["id", "amount"]
+}
+```
+
+**Statistics Provided:**
+- Numeric columns: min, max, avg, nullPct
+- Date columns: min, max, nullPct
+- Text columns: nullPct, approxDistinct
+
+**Note:** Dataset must be ingested before catalog is available.
+
 ## Supported File Formats
 
 - CSV (`.csv`)
@@ -177,6 +255,13 @@ uvicorn app.main:app --reload --port 7337
 - Check that you have write permissions in your home directory
 - The `~/.cloaksheets/` directory should be created automatically
 - Delete `~/.cloaksheets/registry.json` to reset (you'll lose registered datasets)
+
+### Ingestion errors
+- Check the job status via `GET /jobs` to see the error message
+- Verify the CSV file is properly formatted (DuckDB's auto-detection is quite robust)
+- Large files may take time to ingest - check job status periodically
+- If ingestion fails, you can retry by calling the ingest endpoint again
+- DuckDB files are stored at `~/.cloaksheets/datasets/{datasetId}/db.duckdb`
 
 ## License
 
