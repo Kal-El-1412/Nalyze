@@ -1,9 +1,12 @@
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import duckdb
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 
 from app.storage import storage
 
@@ -14,6 +17,8 @@ class IngestionPipeline:
     def __init__(self):
         self.base_dir = Path.home() / ".cloaksheets" / "datasets"
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.max_xlsx_size_mb = 200
+        self.chunk_size = 10000
 
     def get_dataset_dir(self, dataset_id: str) -> Path:
         dataset_dir = self.base_dir / dataset_id
@@ -25,6 +30,22 @@ class IngestionPipeline:
 
     def get_catalog_path(self, dataset_id: str) -> Path:
         return self.get_dataset_dir(dataset_id) / "catalog.json"
+
+    def _get_file_size_mb(self, file_path: str) -> float:
+        return os.path.getsize(file_path) / (1024 * 1024)
+
+    def _get_file_extension(self, file_path: str) -> str:
+        return Path(file_path).suffix.lower()
+
+    async def ingest(self, dataset_id: str, file_path: str, job_id: str, force: bool = False):
+        ext = self._get_file_extension(file_path)
+
+        if ext == ".csv":
+            await self.ingest_csv(dataset_id, file_path, job_id)
+        elif ext in [".xlsx", ".xls"]:
+            await self.ingest_xlsx(dataset_id, file_path, job_id, force)
+        else:
+            raise ValueError(f"Unsupported file format: {ext}")
 
     async def ingest_csv(self, dataset_id: str, file_path: str, job_id: str):
         logger.info(f"Starting ingestion for dataset {dataset_id} from {file_path}")
@@ -94,6 +115,151 @@ class IngestionPipeline:
                 finished_at=datetime.utcnow().isoformat(),
                 error=str(e)
             )
+
+    async def ingest_xlsx(self, dataset_id: str, file_path: str, job_id: str, force: bool = False):
+        logger.info(f"Starting XLSX ingestion for dataset {dataset_id} from {file_path}")
+
+        try:
+            file_size_mb = self._get_file_size_mb(file_path)
+            logger.info(f"XLSX file size: {file_size_mb:.2f} MB")
+
+            if file_size_mb > self.max_xlsx_size_mb and not force:
+                error_msg = (
+                    f"XLSX file is {file_size_mb:.2f} MB, which exceeds the recommended limit of "
+                    f"{self.max_xlsx_size_mb} MB. For better performance, please export to CSV format. "
+                    f"Alternatively, you can force ingestion by adding ?force=true to the request."
+                )
+                raise ValueError(error_msg)
+
+            await storage.update_job(
+                job_id=job_id,
+                status="running",
+                started_at=datetime.utcnow().isoformat()
+            )
+
+            db_path = self.get_db_path(dataset_id)
+            catalog_path = self.get_catalog_path(dataset_id)
+
+            if db_path.exists():
+                db_path.unlink()
+                logger.info(f"Removed existing database at {db_path}")
+
+            conn = duckdb.connect(str(db_path))
+
+            logger.info(f"Loading XLSX from {file_path}")
+            wb = load_workbook(filename=file_path, read_only=True, data_only=True)
+
+            sheet = self._select_best_sheet(wb)
+            logger.info(f"Selected sheet: {sheet.title}")
+
+            self._ingest_sheet_to_duckdb(conn, sheet)
+            wb.close()
+
+            logger.info("XLSX loaded successfully, generating catalog")
+            catalog = self._generate_catalog(conn)
+
+            with open(catalog_path, 'w') as f:
+                json.dump(catalog, f, indent=2)
+
+            conn.close()
+            logger.info(f"Catalog saved to {catalog_path}")
+
+            await storage.update_dataset(
+                dataset_id=dataset_id,
+                updates={
+                    "status": "ingested",
+                    "lastIngestedAt": datetime.utcnow().isoformat()
+                }
+            )
+
+            await storage.update_job(
+                job_id=job_id,
+                status="done",
+                finished_at=datetime.utcnow().isoformat()
+            )
+
+            logger.info(f"XLSX ingestion completed successfully for dataset {dataset_id}")
+
+        except Exception as e:
+            logger.error(f"XLSX ingestion failed for dataset {dataset_id}: {e}", exc_info=True)
+
+            await storage.update_dataset(
+                dataset_id=dataset_id,
+                updates={"status": "error"}
+            )
+
+            await storage.update_job(
+                job_id=job_id,
+                status="error",
+                finished_at=datetime.utcnow().isoformat(),
+                error=str(e)
+            )
+
+    def _select_best_sheet(self, workbook):
+        if not workbook.sheetnames:
+            raise ValueError("Workbook contains no sheets")
+
+        for sheet_name in workbook.sheetnames:
+            sheet = workbook[sheet_name]
+            if hasattr(sheet, 'tables') and sheet.tables:
+                logger.info(f"Found named table in sheet: {sheet_name}")
+                return sheet
+
+        first_sheet = workbook[workbook.sheetnames[0]]
+        return first_sheet
+
+    def _ingest_sheet_to_duckdb(self, conn: duckdb.DuckDBPyConnection, sheet):
+        rows_iter = sheet.iter_rows(values_only=True)
+
+        header_row = next(rows_iter, None)
+        if not header_row:
+            raise ValueError("Sheet is empty or has no data")
+
+        headers = []
+        for idx, cell in enumerate(header_row):
+            if cell is None or str(cell).strip() == "":
+                headers.append(f"column_{idx + 1}")
+            else:
+                headers.append(str(cell).strip())
+
+        logger.info(f"Detected {len(headers)} columns: {headers[:5]}...")
+
+        conn.execute("CREATE TABLE data (" + ", ".join([f'"{h}" VARCHAR' for h in headers]) + ")")
+
+        chunk = []
+        row_count = 0
+
+        for row in rows_iter:
+            if all(cell is None or str(cell).strip() == "" for cell in row):
+                continue
+
+            cleaned_row = []
+            for cell in row:
+                if cell is None:
+                    cleaned_row.append(None)
+                else:
+                    cleaned_row.append(str(cell))
+
+            chunk.append(cleaned_row)
+            row_count += 1
+
+            if len(chunk) >= self.chunk_size:
+                self._insert_chunk(conn, headers, chunk)
+                logger.info(f"Inserted chunk of {len(chunk)} rows (total: {row_count})")
+                chunk = []
+
+        if chunk:
+            self._insert_chunk(conn, headers, chunk)
+            logger.info(f"Inserted final chunk of {len(chunk)} rows (total: {row_count})")
+
+        logger.info(f"Total rows inserted: {row_count}")
+
+    def _insert_chunk(self, conn: duckdb.DuckDBPyConnection, headers: List[str], chunk: List[List]):
+        placeholders = ", ".join(["?" for _ in headers])
+        col_names = ", ".join([f'"{h}"' for h in headers])
+        insert_sql = f"INSERT INTO data ({col_names}) VALUES ({placeholders})"
+
+        conn.executemany(insert_sql, chunk)
 
     def _generate_catalog(self, conn: duckdb.DuckDBPyConnection) -> Dict[str, Any]:
         row_count = conn.execute("SELECT COUNT(*) FROM data").fetchone()[0]

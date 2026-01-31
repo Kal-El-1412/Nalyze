@@ -142,9 +142,12 @@ Returns an array of all jobs (ingestion, PII scans, etc.).
 
 ### Ingest Dataset
 ```
-POST /datasets/{datasetId}/ingest
+POST /datasets/{datasetId}/ingest?force=false
 ```
 Start ingesting a registered dataset into DuckDB. This is a background operation that returns immediately.
+
+**Query Parameters:**
+- `force` (optional, default: `false`) - Force ingestion of large XLSX files that exceed the 200MB limit
 
 **Response:**
 ```json
@@ -155,14 +158,28 @@ Start ingesting a registered dataset into DuckDB. This is a background operation
 
 **Behavior:**
 - Creates a DuckDB database at `~/.cloaksheets/datasets/{datasetId}/db.duckdb`
-- Loads CSV data into a table named `data`
+- Loads data into a table named `data`
 - Generates catalog with column statistics
 - Updates job status: `queued` → `running` → `done` or `error`
 - Updates dataset status to `ingested` on success
 
+**CSV Ingestion (Recommended):**
+- Fastest and most efficient format
+- Direct streaming into DuckDB
+- No memory limitations
+- Handles files of any size
+
+**XLSX Ingestion:**
+- Uses chunked reading (10,000 rows per chunk)
+- Reads only the first sheet by default
+- Prefers named tables if available
+- Memory-efficient streaming
+- **200 MB limit by default** - larger files will be rejected unless `force=true`
+- For files over 200 MB, export to CSV is strongly recommended
+
 **Job Statuses:**
 - `queued` - Job created, waiting to start
-- `running` - Currently processing the CSV
+- `running` - Currently processing the file
 - `done` - Ingestion completed successfully
 - `error` - Ingestion failed (check job.error field)
 
@@ -220,9 +237,24 @@ Retrieve metadata and statistics about an ingested dataset.
 
 ## Supported File Formats
 
-- CSV (`.csv`)
-- Excel (`.xlsx`, `.xls`)
-- Parquet (`.parquet`)
+### CSV (Recommended)
+- **Format:** `.csv`
+- **Performance:** Fastest
+- **Size Limit:** None
+- **Method:** Direct streaming into DuckDB
+- **Best for:** Large datasets, production use
+
+### Excel
+- **Format:** `.xlsx`, `.xls`
+- **Performance:** Good (chunked reading)
+- **Size Limit:** 200 MB (can be overridden with `force=true`)
+- **Method:** Memory-efficient row streaming (10,000 rows per chunk)
+- **Sheet Selection:** First sheet by default, prefers named tables
+- **Note:** For files over 200 MB, export to CSV for better performance
+
+### Parquet
+- **Format:** `.parquet`
+- **Status:** Registered support only (ingestion not yet implemented)
 
 ## Security Notes
 
@@ -258,10 +290,25 @@ uvicorn app.main:app --reload --port 7337
 
 ### Ingestion errors
 - Check the job status via `GET /jobs` to see the error message
-- Verify the CSV file is properly formatted (DuckDB's auto-detection is quite robust)
+- Verify the file is properly formatted
 - Large files may take time to ingest - check job status periodically
 - If ingestion fails, you can retry by calling the ingest endpoint again
 - DuckDB files are stored at `~/.cloaksheets/datasets/{datasetId}/db.duckdb`
+
+### XLSX file size errors
+- If you get a "file exceeds recommended limit" error, you have two options:
+  1. **Recommended:** Export the Excel file to CSV format for better performance
+  2. Add `?force=true` to the ingest endpoint to bypass the 200 MB limit
+- Large XLSX files (>200 MB) will be slower than CSV due to Excel format overhead
+- CSV ingestion has no size limits and is significantly faster
+
+### XLSX ingestion issues
+- Only the first sheet is ingested by default
+- Empty rows are automatically skipped
+- Headers are inferred from the first row
+- If the first row has empty cells, columns will be named `column_1`, `column_2`, etc.
+- Named tables in the workbook are preferred if detected
+- All data is converted to text initially, DuckDB handles type inference in queries
 
 ## License
 

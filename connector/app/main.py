@@ -142,8 +142,8 @@ async def list_jobs():
 
 
 @app.post("/datasets/{dataset_id}/ingest", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
-async def ingest_dataset(dataset_id: str, background_tasks: BackgroundTasks):
-    logger.info(f"Ingestion requested for dataset {dataset_id}")
+async def ingest_dataset(dataset_id: str, background_tasks: BackgroundTasks, force: bool = False):
+    logger.info(f"Ingestion requested for dataset {dataset_id} (force={force})")
 
     dataset = await storage.get_dataset(dataset_id)
     if not dataset:
@@ -166,10 +166,11 @@ async def ingest_dataset(dataset_id: str, background_tasks: BackgroundTasks):
     )
 
     background_tasks.add_task(
-        ingestion_pipeline.ingest_csv,
+        ingestion_pipeline.ingest,
         dataset_id,
         file_path,
-        job["jobId"]
+        job["jobId"],
+        force
     )
 
     logger.info(f"Background ingestion task queued for dataset {dataset_id}, job {job['jobId']}")
