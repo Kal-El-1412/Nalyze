@@ -5,6 +5,8 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
 ## Features
 
 - **Privacy-First**: All data processing happens locally on your machine
+- **AI-Powered Chat**: Natural language queries powered by OpenAI (schema-only sharing)
+- **SQL Safety**: Server-side validation with keyword blocking and LIMIT enforcement
 - **DuckDB Integration**: Fast analytical queries on CSV, Excel, and Parquet files
 - **Local Filesystem Storage**: Dataset registry and job tracking stored in `~/.cloaksheets/`
 - **RESTful API**: Clean API interface for the frontend application
@@ -32,6 +34,7 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
 ## Requirements
 
 - Python 3.11+
+- OpenAI API key (for chat functionality) - Get one at https://platform.openai.com/api-keys
 - Local spreadsheet files (CSV, XLSX, XLS, Parquet)
 
 ## Installation
@@ -47,7 +50,14 @@ Privacy-first local data connector for spreadsheet analysis. This backend servic
    pip install -r requirements.txt
    ```
 
-3. **Storage is automatic**: The connector automatically creates `~/.cloaksheets/` with the necessary directories and registry file on first run. No database setup needed!
+3. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your OpenAI API key:
+   # OPENAI_API_KEY=sk-your-key-here
+   ```
+
+4. **Storage is automatic**: The connector automatically creates `~/.cloaksheets/` with the necessary directories and registry file on first run. No database setup needed!
 
 ## Running the Server
 
@@ -322,11 +332,11 @@ Quick preview of the first N rows from a dataset for debugging and inspection.
 
 **Note:** For production queries, use the `/queries/execute` endpoint instead.
 
-### Chat (MVP Orchestrator)
+### Chat (Privacy-First AI Orchestrator)
 ```
 POST /chat
 ```
-Conversational interface for data analysis that orchestrates the query workflow without requiring OpenAI (MVP stub).
+Conversational interface for data analysis powered by OpenAI with strict privacy enforcement.
 
 **Request Body:**
 ```json
@@ -403,25 +413,40 @@ Conversational interface for data analysis that orchestrates the query workflow 
 ```
 
 **Behavior:**
-- If dataset not ingested → returns `needs_clarification` asking to run ingestion
-- If message contains "monthly" or "trend" → returns `run_queries` with auto-generated SQL based on detected date/numeric columns
-- If no date column detected → returns `needs_clarification` asking which column is the date
-- If no numeric column detected → returns `needs_clarification` asking which column is the metric
-- If `resultsContext` provided → returns `final_answer` with summary and tables
+- Validates `OPENAI_API_KEY` environment variable is set
+- Checks dataset is ingested before proceeding
+- Sends only schema and column statistics to OpenAI (never raw rows)
+- AI generates safe, validated SQL queries from natural language
+- Asks clarifying questions when date/metric is ambiguous
+- Summarizes results in user-friendly language
+- Tracks what data is shared via audit field
 
-**MVP Features:**
-- Stateless orchestration (no AI calls yet)
-- Automatic column detection from catalog
-- Generic query generation for trends
-- Result summarization with first 5 rows preview
-- Privacy audit tracking
+**Privacy Guarantees:**
+- ✅ ONLY schema and column statistics sent to OpenAI
+- ✅ ONLY aggregated query results sent to OpenAI
+- ✅ NEVER sends raw data rows
+- ✅ All queries validated server-side before execution
+- ✅ Audit trail tracks exactly what's shared: `["schema", "aggregates_only"]`
+
+**SQL Safety Features:**
+- LIMIT clause enforcement (max 10,000 rows)
+- Keyword blocklist prevents: DROP, DELETE, INSERT, UPDATE, TRUNCATE, ALTER, CREATE, GRANT, REVOKE, EXEC, PRAGMA, ATTACH, DETACH
+- Query count limit (max 3 queries per request)
+- Server-side validation before any execution
+- Only SELECT statements allowed
+
+**Error Handling:**
+- Returns 400 error if `OPENAI_API_KEY` not set
+- Returns `needs_clarification` for invalid queries
+- Graceful error messages for OpenAI API failures
 
 **Use Cases:**
-- Testing the full chat UI workflow
+- Natural language data exploration
 - Quick trend analysis without writing SQL
-- Guided data exploration
+- Guided data discovery with AI assistance
+- Privacy-preserving analytics
 
-**Note:** This is an MVP stub. OpenAI integration for natural language understanding will be added in future iterations.
+**Model:** Uses GPT-4 Turbo for optimal SQL generation and result summarization.
 
 ## Supported File Formats
 
