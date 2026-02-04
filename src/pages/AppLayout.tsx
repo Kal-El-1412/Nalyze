@@ -12,7 +12,7 @@ import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
 import { connectorApi, Dataset, Job, ChatResponse, ApiError, DatasetCatalog } from '../services/connectorApi';
-import { generateHTMLReport, downloadHTMLReport, copyToClipboard } from '../utils/reportGenerator';
+import { generateHTMLReport, generateJSONBundle, downloadHTMLReport, downloadJSONBundle, downloadAsZIP, extractSummaryText, copyToClipboard } from '../utils/reportGenerator';
 import { loadTelegramSettings, sendJobCompletionNotification } from '../utils/telegramNotifications';
 import { diagnostics } from '../services/diagnostics';
 import { getDatasetDefaults } from '../utils/datasetDefaults';
@@ -53,10 +53,16 @@ interface Message {
 
 interface Report {
   id: string;
+  datasetId?: string;
   datasetName: string;
   timestamp: string;
   conversationId: string;
   htmlContent: string;
+  jsonContent?: string;
+  summary?: string;
+  messages?: any[];
+  tables?: any[];
+  auditLog?: string[];
 }
 
 export default function AppLayout() {
@@ -343,7 +349,8 @@ export default function AppLayout() {
       ? datasets.find(d => d.id === activeDataset)?.name || 'Unknown Dataset'
       : 'No Dataset';
 
-    const htmlContent = generateHTMLReport({
+    const reportData = {
+      datasetId: activeDataset || undefined,
       datasetName,
       timestamp: new Date().toLocaleString(),
       conversationId,
@@ -351,14 +358,24 @@ export default function AppLayout() {
       summary: resultsData.summary,
       tableData: resultsData.tableData,
       auditLog: resultsData.auditLog,
-    });
+      tables: resultsData.tables || [],
+    };
+
+    const htmlContent = generateHTMLReport(reportData);
+    const jsonContent = generateJSONBundle(reportData);
 
     const newReport: Report = {
       id: `report-${Date.now()}`,
+      datasetId: activeDataset || undefined,
       datasetName,
       timestamp: new Date().toLocaleString(),
       conversationId,
       htmlContent,
+      jsonContent,
+      summary: resultsData.summary,
+      messages,
+      tables: resultsData.tables || [],
+      auditLog: resultsData.auditLog,
     };
 
     const updatedReports = [newReport, ...reports];
@@ -378,7 +395,43 @@ export default function AppLayout() {
   const handleDownloadReport = (report: Report) => {
     const filename = `${report.datasetName.replace(/\s+/g, '-')}-${Date.now()}.html`;
     downloadHTMLReport(report.htmlContent, filename);
-    showToastMessage('Report downloaded');
+    showToastMessage('HTML report downloaded');
+  };
+
+  const handleDownloadJSONReport = (report: Report) => {
+    if (!report.jsonContent) {
+      showToastMessage('JSON data not available for this report');
+      return;
+    }
+    const filename = `${report.datasetName.replace(/\s+/g, '-')}-${Date.now()}.json`;
+    downloadJSONBundle(report.jsonContent, filename);
+    showToastMessage('JSON report downloaded');
+  };
+
+  const handleDownloadZIPReport = async (report: Report) => {
+    if (!report.jsonContent) {
+      showToastMessage('JSON data not available for this report');
+      return;
+    }
+    try {
+      await downloadAsZIP(report.htmlContent, report.jsonContent, report.datasetName);
+      showToastMessage('ZIP archive downloaded');
+    } catch (error) {
+      showToastMessage('ZIP export failed. Please download HTML and JSON separately.');
+    }
+  };
+
+  const handleCopyReportSummary = async (report: Report) => {
+    if (!report.summary) {
+      showToastMessage('Summary not available for this report');
+      return;
+    }
+    try {
+      await copyToClipboard(report.summary);
+      showToastMessage('Summary copied to clipboard');
+    } catch (error) {
+      showToastMessage('Failed to copy summary');
+    }
   };
 
   const handleDeleteReport = (id: string) => {
@@ -722,6 +775,9 @@ export default function AppLayout() {
             <ReportsPanel
               reports={reports}
               onDownloadReport={handleDownloadReport}
+              onDownloadJSON={handleDownloadJSONReport}
+              onDownloadZIP={handleDownloadZIPReport}
+              onCopySummary={handleCopyReportSummary}
               onDeleteReport={handleDeleteReport}
             />
           )}

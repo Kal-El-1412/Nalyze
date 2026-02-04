@@ -2,9 +2,19 @@ interface Message {
   type: string;
   content: string;
   timestamp: string;
+  pinned?: boolean;
+  clarificationData?: any;
+  queriesData?: any;
+}
+
+interface TableData {
+  name: string;
+  columns: string[];
+  rows: any[][];
 }
 
 interface ReportData {
+  datasetId?: string;
   datasetName: string;
   timestamp: string;
   conversationId: string;
@@ -12,6 +22,7 @@ interface ReportData {
   summary: string;
   tableData: any[];
   auditLog: string[];
+  tables?: TableData[];
 }
 
 export function generateHTMLReport(data: ReportData): string {
@@ -353,6 +364,100 @@ export function downloadHTMLReport(html: string, filename: string): void {
 
 export function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
+}
+
+export interface JSONReportBundle {
+  datasetId?: string;
+  datasetName: string;
+  timestamp: string;
+  conversationId: string;
+  conversation: {
+    messages: Message[];
+  };
+  finalAnswers: {
+    summary: string;
+    tables: TableData[];
+  };
+  audit: {
+    sharedWithAI: string[];
+  };
+  metadata: {
+    exportedAt: string;
+    version: string;
+  };
+}
+
+export function generateJSONBundle(data: ReportData): string {
+  const bundle: JSONReportBundle = {
+    datasetId: data.datasetId,
+    datasetName: data.datasetName,
+    timestamp: data.timestamp,
+    conversationId: data.conversationId,
+    conversation: {
+      messages: data.messages.map(m => ({
+        type: m.type,
+        content: m.content,
+        timestamp: m.timestamp,
+        pinned: m.pinned,
+      })),
+    },
+    finalAnswers: {
+      summary: data.summary,
+      tables: data.tables || [],
+    },
+    audit: {
+      sharedWithAI: data.auditLog,
+    },
+    metadata: {
+      exportedAt: new Date().toISOString(),
+      version: '1.0.0',
+    },
+  };
+
+  return JSON.stringify(bundle, null, 2);
+}
+
+export function downloadJSONBundle(json: string, filename: string): void {
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadAsZIP(
+  htmlContent: string,
+  jsonContent: string,
+  datasetName: string
+): Promise<void> {
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+
+    zip.file('report.html', htmlContent);
+    zip.file('report.json', jsonContent);
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${datasetName.replace(/\s+/g, '-')}-${Date.now()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('ZIP creation failed:', error);
+    throw new Error('ZIP export is not available. Please export HTML and JSON separately.');
+  }
+}
+
+export function extractSummaryText(data: ReportData): string {
+  return data.summary || 'No summary available';
 }
 
 function escapeHtml(text: string): string {
