@@ -1,9 +1,9 @@
-import { Database, Briefcase, Settings, Shield, FileText, Activity } from 'lucide-react';
+import { Database, Settings, Shield, FileText, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface SidebarProps {
-  activeSection: 'datasets' | 'jobs' | 'reports' | 'diagnostics';
-  onSectionChange: (section: 'datasets' | 'jobs' | 'reports' | 'diagnostics') => void;
+  activeSection: 'datasets' | 'reports' | 'diagnostics';
+  onSectionChange: (section: 'datasets' | 'reports' | 'diagnostics') => void;
   reportCount?: number;
   errorCount?: number;
 }
@@ -34,18 +34,6 @@ export default function Sidebar({ activeSection, onSectionChange, reportCount = 
         >
           <Database className="w-5 h-5" />
           <span>Datasets</span>
-        </button>
-
-        <button
-          onClick={() => onSectionChange('jobs')}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-            activeSection === 'jobs'
-              ? 'bg-emerald-50 text-emerald-700 font-medium'
-              : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <Briefcase className="w-5 h-5" />
-          <span>Jobs</span>
         </button>
 
         <button

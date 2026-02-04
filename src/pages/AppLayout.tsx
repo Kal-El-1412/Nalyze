@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, ChevronDown, Plus, RefreshCw, ShieldCheck, PlayCircle } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import DatasetsPanel from '../components/DatasetsPanel';
-import JobsPanel from '../components/JobsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import ChatPanel from '../components/ChatPanel';
 import ResultsPanel from '../components/ResultsPanel';
@@ -12,9 +11,8 @@ import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
 import Toast from '../components/Toast';
-import { connectorApi, Dataset, Job, ChatResponse, ApiError, DatasetCatalog } from '../services/connectorApi';
+import { connectorApi, Dataset, ChatResponse, ApiError, DatasetCatalog } from '../services/connectorApi';
 import { generateHTMLReport, generateJSONBundle, downloadHTMLReport, downloadJSONBundle, downloadAsZIP, extractSummaryText, copyToClipboard } from '../utils/reportGenerator';
-import { loadTelegramSettings, sendJobCompletionNotification } from '../utils/telegramNotifications';
 import { diagnostics } from '../services/diagnostics';
 import { getDatasetDefaults } from '../utils/datasetDefaults';
 
@@ -23,19 +21,6 @@ interface LocalDataset {
   name: string;
   rows: number;
   lastUsed: string;
-}
-
-interface LocalJob {
-  id: string;
-  title: string;
-  status: 'running' | 'completed' | 'failed';
-  stage?: 'queued' | 'scanning_headers' | 'ingesting_rows' | 'building_catalog' | 'done' | 'error';
-  timestamp: string;
-  duration?: string;
-  startedAt?: string;
-  finishedAt?: string;
-  updatedAt?: string;
-  error?: string;
 }
 
 interface Message {
@@ -69,11 +54,10 @@ interface Report {
 }
 
 export default function AppLayout() {
-  const [activeSection, setActiveSection] = useState<'datasets' | 'jobs' | 'reports' | 'diagnostics'>('datasets');
+  const [activeSection, setActiveSection] = useState<'datasets' | 'reports' | 'diagnostics'>('datasets');
   const [datasets, setDatasets] = useState<LocalDataset[]>([]);
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<DatasetCatalog | null>(null);
-  const [jobs, setJobs] = useState<LocalJob[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [connectorStatus, setConnectorStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
@@ -102,9 +86,6 @@ export default function AppLayout() {
   });
 
   const [showDatasetSummary, setShowDatasetSummary] = useState(false);
-
-  const completedJobsRef = useRef<Set<string>>(new Set());
-  const notificationSentRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const savedDemoMode = localStorage.getItem('demoMode');
@@ -150,7 +131,6 @@ export default function AppLayout() {
 
     checkConnectorHealth();
     loadDatasetsFromConnector();
-    loadJobsFromConnector();
     loadReports();
 
     const healthInterval = setInterval(checkConnectorHealth, 30000);
@@ -163,17 +143,6 @@ export default function AppLayout() {
       window.removeEventListener('safeModeChange', handleStorageChange);
     };
   }, []);
-
-  useEffect(() => {
-    const hasRunningJobs = jobs.some(job => job.status === 'running');
-    const pollInterval = hasRunningJobs ? 2000 : 5000;
-
-    const jobsInterval = setInterval(loadJobsFromConnector, pollInterval);
-
-    return () => {
-      clearInterval(jobsInterval);
-    };
-  }, [jobs]);
 
   useEffect(() => {
     if (activeDataset && connectorStatus === 'connected') {
@@ -291,85 +260,6 @@ export default function AppLayout() {
     } finally {
       setIsLoadingDatasets(false);
     }
-  };
-
-  const loadJobsFromConnector = async () => {
-    const apiJobs = await connectorApi.getJobs();
-
-    if (apiJobs.length > 0) {
-      const localJobs: LocalJob[] = apiJobs.map((job: Job) => ({
-        id: job.jobId,
-        title: `${job.type} - ${job.datasetId}`,
-        status: job.status === 'done' ? 'completed' : job.status === 'error' ? 'failed' : 'running',
-        stage: job.stage || undefined,
-        timestamp: new Date(job.startedAt || Date.now()).toISOString(),
-        duration: job.finishedAt ? calculateDuration(job.startedAt, job.finishedAt) : undefined,
-        startedAt: job.startedAt || undefined,
-        finishedAt: job.finishedAt || undefined,
-        updatedAt: job.updatedAt || undefined,
-        error: job.error || undefined,
-      }));
-
-      for (const job of localJobs) {
-        if (job.status === 'completed' && !completedJobsRef.current.has(job.id)) {
-          completedJobsRef.current.add(job.id);
-
-          if (!notificationSentRef.current.has(job.id)) {
-            await sendTelegramNotificationIfEnabled(job.title);
-            notificationSentRef.current.add(job.id);
-          }
-        }
-      }
-
-      setJobs(localJobs);
-    } else if (connectorStatus === 'disconnected') {
-      const mockJobs = connectorApi.getMockJobs().map((job: Job) => ({
-        id: job.jobId,
-        title: `${job.type} - ${job.datasetId}`,
-        status: 'completed' as const,
-        stage: 'done' as const,
-        timestamp: new Date(job.startedAt).toISOString(),
-        duration: '2.3s',
-        startedAt: job.startedAt,
-        finishedAt: job.finishedAt,
-      }));
-      setJobs(mockJobs);
-    }
-  };
-
-  const sendTelegramNotificationIfEnabled = async (jobTitle: string) => {
-    try {
-      const telegramSettings = loadTelegramSettings();
-
-      if (!telegramSettings.notifyOnCompletion) {
-        return;
-      }
-
-      if (!telegramSettings.botToken || !telegramSettings.chatId) {
-        return;
-      }
-
-      const datasetName = activeDataset
-        ? datasets.find(d => d.id === activeDataset)?.name || jobTitle
-        : jobTitle;
-
-      const result = await sendJobCompletionNotification(
-        telegramSettings.botToken,
-        telegramSettings.chatId,
-        datasetName
-      );
-
-      if (!result.success) {
-        console.error('Failed to send Telegram notification:', result.error);
-      }
-    } catch (error) {
-      console.error('Error sending Telegram notification:', error);
-    }
-  };
-
-  const calculateDuration = (start: string, end: string): string => {
-    const duration = new Date(end).getTime() - new Date(start).getTime();
-    return `${(duration / 1000).toFixed(1)}s`;
   };
 
   const showToastMessage = (message: string) => {
@@ -927,7 +817,6 @@ export default function AppLayout() {
               privacyMode={privacyMode}
             />
           )}
-          {activeSection === 'jobs' && <JobsPanel jobs={jobs} />}
           {activeSection === 'reports' && (
             <ReportsPanel
               reports={reports}
