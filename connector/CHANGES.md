@@ -1,8 +1,13 @@
-# /chat Endpoint Refactor - Intent-Based Support
+# /chat Endpoint Refactor - Intent-Based Support & Deterministic Clarifications
 
 ## Summary
 
-The `/chat` endpoint has been refactored to support both free-text messages (existing) and structured intent-based requests (new). Backward compatibility is fully maintained.
+The `/chat` endpoint has been refactored to support:
+1. **Structured intent-based requests** for direct state updates (Prompt 2)
+2. **Deterministic clarification flow** based on conversation state (Prompt 3)
+3. **Backward compatibility** with existing message-based requests
+
+All changes maintain full backward compatibility with existing clients.
 
 ## Changes Made
 
@@ -173,17 +178,73 @@ Created documentation files:
 - `INTENT_API.md` - Complete intent-based API guide
 - `CHANGES.md` - This file
 
+### 5. Deterministic Clarification Flow (Prompt 3)
+
+**Updated `handle_message()` in `app/main.py`:**
+
+Added pre-checks before LLM processing:
+
+```python
+async def handle_message(request: ChatOrchestratorRequest):
+    state = state_manager.get_state(request.conversationId)
+    context = state.get("context", {})
+
+    # Check 1: analysis_type missing
+    if "analysis_type" not in context:
+        return NeedsClarificationResponse(
+            question="What type of analysis would you like to perform?",
+            choices=["trend", "comparison", "distribution", "correlation", "summary"]
+        )
+
+    # Check 2: time_period missing
+    if "time_period" not in context:
+        return NeedsClarificationResponse(
+            question="What time period would you like to analyze?",
+            choices=["last_7_days", "last_30_days", "last_90_days", "last_year", "year_to_date", "all_time"]
+        )
+
+    # Both present: call LLM
+    response = await chat_orchestrator.process(request)
+    return response
+```
+
+**Clarification Flow Logic:**
+1. First message without state → returns analysis_type clarification (no LLM)
+2. User sets analysis_type via intent → state updated
+3. Second message → returns time_period clarification (no LLM)
+4. User sets time_period via intent → state updated
+5. Third message → all fields present, LLM called
+
+**Benefits:**
+- Deterministic clarifications (not LLM-based)
+- Each question appears exactly once
+- No repeated questions
+- No LLM overhead until ready
+- Guaranteed context for analysis
+
 ## Files Modified
 
-1. `/connector/app/models.py` - Updated models
-2. `/connector/app/main.py` - Updated endpoint + added handlers
-3. `/connector/app/chat_orchestrator.py` - Added message validation
+1. `/connector/app/models.py` - Updated models (Prompt 2)
+2. `/connector/app/main.py` - Updated endpoint + added handlers + clarification checks (Prompts 2 & 3)
+3. `/connector/app/chat_orchestrator.py` - Added message validation (Prompt 2)
 4. `/connector/app/state.py` - New state manager (Prompt 1)
 
 ## Acceptance Criteria
 
+### Prompt 1: State Manager
+✅ State persists per conversationId
+✅ Fields persist across messages
+✅ Thread-safe operations
+✅ In-memory storage
+
+### Prompt 2: Intent-Based Chat
 ✅ Backend updates state directly when intent is present
 ✅ No LLM call happens when setting fields
 ✅ Backward compatibility maintained
-✅ State persists per conversationId
-✅ Fields persist across messages
+✅ Structured intent support
+
+### Prompt 3: Deterministic Clarifications
+✅ Clarification questions appear once per field
+✅ Selecting an option never repeats the same question
+✅ No LLM calls during clarification flow
+✅ LLM only called when required fields present

@@ -443,11 +443,28 @@ async def handle_intent(request: ChatOrchestratorRequest) -> IntentAcknowledgmen
 
 async def handle_message(request: ChatOrchestratorRequest):
     state = state_manager.get_state(request.conversationId)
+    context = state.get("context", {})
+
+    if "analysis_type" not in context:
+        logger.info(f"Missing analysis_type for conversation {request.conversationId}, returning clarification")
+        return NeedsClarificationResponse(
+            question="What type of analysis would you like to perform?",
+            choices=["trend", "comparison", "distribution", "correlation", "summary"]
+        )
+
+    if "time_period" not in context:
+        logger.info(f"Missing time_period for conversation {request.conversationId}, returning clarification")
+        return NeedsClarificationResponse(
+            question="What time period would you like to analyze?",
+            choices=["last_7_days", "last_30_days", "last_90_days", "last_year", "year_to_date", "all_time"]
+        )
+
     state_manager.update_state(
         request.conversationId,
         message_count=state.get("message_count", 0) + 1
     )
 
+    logger.info(f"All required fields present, calling analysis pipeline for conversation {request.conversationId}")
     response = await chat_orchestrator.process(request)
     return response
 
