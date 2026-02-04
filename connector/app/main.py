@@ -292,7 +292,11 @@ async def execute_queries(request_data: Request):
         )
 
     try:
-        results = await query_executor.execute_queries(request.datasetId, request.queries)
+        results = await query_executor.execute_queries(
+            request.datasetId,
+            request.queries,
+            privacy_mode=request.privacyMode
+        )
         return QueryExecuteResponse(results=results)
     except QueryTimeoutError as e:
         raise HTTPException(

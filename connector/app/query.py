@@ -2,10 +2,11 @@ import logging
 import re
 import signal
 import time
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import duckdb
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
+from app.pii_masker import pii_masker
 from app.config import config
 
 logger = logging.getLogger(__name__)
@@ -183,7 +184,34 @@ class QueryExecutor:
             logger.error(f"Query execution error: {e}")
             raise
 
-    async def execute_queries(self, dataset_id: str, queries: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    async def execute_queries(
+        self,
+        dataset_id: str,
+        queries: List[Dict[str, str]],
+        privacy_mode: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Execute queries and optionally mask PII values in results.
+
+        Args:
+            dataset_id: ID of the dataset to query
+            queries: List of query dicts with 'name' and 'sql' keys
+            privacy_mode: Whether to mask PII values in results (default: True)
+
+        Returns:
+            List of result dicts with 'name', 'columns', and 'rows' keys
+        """
+        catalog = None
+        if privacy_mode:
+            try:
+                catalog = await ingestion_pipeline.load_catalog(dataset_id)
+            except FileNotFoundError:
+                logger.warning(f"Catalog not found for dataset {dataset_id}, skipping PII masking")
+                catalog = None
+            except Exception as e:
+                logger.warning(f"Error loading catalog for PII masking: {e}")
+                catalog = None
+
         results = []
 
         for query in queries:
@@ -195,10 +223,17 @@ class QueryExecutor:
 
             try:
                 result = await self.execute_query(dataset_id, sql, validate=True, apply_limit=True)
+
+                columns = result["columns"]
+                rows = result["rows"]
+
+                if privacy_mode and catalog:
+                    rows = pii_masker.mask_result_rows(columns, rows, catalog, privacy_mode)
+
                 results.append({
                     "name": name,
-                    "columns": result["columns"],
-                    "rows": result["rows"]
+                    "columns": columns,
+                    "rows": rows
                 })
             except Exception as e:
                 logger.error(f"Error executing query '{name}': {e}")
