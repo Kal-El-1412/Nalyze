@@ -218,6 +218,11 @@ class ChatOrchestrator:
         """Check if conversation state has required fields for SQL generation"""
         analysis_type = context.get("analysis_type")
         time_period = context.get("time_period")
+
+        # Some analysis types don't require time_period
+        if analysis_type in ["data_quality", "row_count"]:
+            return analysis_type is not None
+
         return analysis_type is not None and time_period is not None
 
     async def _generate_sql_plan(
@@ -316,6 +321,70 @@ class ChatOrchestrator:
                 })
                 explanation = f"I'll first discover the columns in your dataset, then show you the trends for the {time_period} period."
 
+        elif analysis_type == "outliers":
+            if working_catalog:
+                metric_col = self._detect_metric_column(working_catalog)
+                if metric_col:
+                    queries.append({
+                        "name": "outlier_analysis",
+                        "sql": f'''SELECT
+                            "{metric_col}",
+                            AVG("{metric_col}") as avg_value,
+                            STDDEV("{metric_col}") as stddev_value,
+                            MIN("{metric_col}") as min_value,
+                            MAX("{metric_col}") as max_value,
+                            COUNT(*) as total_count
+                        FROM data'''
+                    })
+                    queries.append({
+                        "name": "extreme_values",
+                        "sql": f'SELECT "{metric_col}", COUNT(*) as count FROM data GROUP BY "{metric_col}" ORDER BY "{metric_col}" DESC LIMIT 20'
+                    })
+                    explanation = f"I'll analyze {metric_col} for outliers and extreme values for the {time_period} period."
+                else:
+                    queries.append({
+                        "name": "row_count",
+                        "sql": "SELECT COUNT(*) as row_count FROM data"
+                    })
+                    explanation = f"I couldn't find numeric columns for outlier detection, so I'll show you the total row count for the {time_period} period."
+            else:
+                queries.append({
+                    "name": "discover_columns",
+                    "sql": "SELECT * FROM data LIMIT 1"
+                })
+                explanation = f"I'll first discover the columns in your dataset, then check for outliers for the {time_period} period."
+
+        elif analysis_type == "data_quality":
+            if working_catalog:
+                all_columns = []
+                if working_catalog.get("tables") and len(working_catalog["tables"]) > 0:
+                    all_columns = working_catalog["tables"][0].get("columns", [])
+
+                if all_columns:
+                    # Count nulls for each column
+                    null_checks = ", ".join([f'SUM(CASE WHEN "{col}" IS NULL THEN 1 ELSE 0 END) as "{col}_nulls"' for col in all_columns[:10]])
+                    queries.append({
+                        "name": "null_counts",
+                        "sql": f"SELECT COUNT(*) as total_rows, {null_checks} FROM data"
+                    })
+                    queries.append({
+                        "name": "duplicate_check",
+                        "sql": "SELECT COUNT(*) as total_rows, COUNT(DISTINCT *) as unique_rows FROM data"
+                    })
+                    explanation = f"I'll check data quality including null values and duplicates."
+                else:
+                    queries.append({
+                        "name": "basic_stats",
+                        "sql": "SELECT COUNT(*) as row_count FROM data"
+                    })
+                    explanation = f"I'll provide basic data quality statistics."
+            else:
+                queries.append({
+                    "name": "discover_columns",
+                    "sql": "SELECT * FROM data LIMIT 1"
+                })
+                explanation = f"I'll first discover the columns in your dataset, then check data quality."
+
         else:
             queries.append({
                 "name": "row_count",
@@ -379,6 +448,63 @@ class ChatOrchestrator:
                     message_parts.append(f"\n**Trend analysis:** {row_count} data points.")
                     tables.append(TableData(
                         title="Monthly Trend",
+                        columns=result.columns,
+                        rows=result.rows
+                    ))
+
+                elif analysis_type == "outliers":
+                    if result.name == "outlier_analysis":
+                        # Extract statistics
+                        if result.rows and len(result.rows) > 0:
+                            row = result.rows[0]
+                            avg = row[1] if len(row) > 1 else None
+                            stddev = row[2] if len(row) > 2 else None
+                            min_val = row[3] if len(row) > 3 else None
+                            max_val = row[4] if len(row) > 4 else None
+
+                            message_parts.append(f"\n**Outlier Analysis:**")
+                            if avg is not None:
+                                message_parts.append(f"- Average: {avg:.2f}")
+                            if stddev is not None:
+                                message_parts.append(f"- Standard Deviation: {stddev:.2f}")
+                            if min_val is not None and max_val is not None:
+                                message_parts.append(f"- Range: {min_val:.2f} to {max_val:.2f}")
+
+                    tables.append(TableData(
+                        title=result.name.replace("_", " ").title(),
+                        columns=result.columns,
+                        rows=result.rows
+                    ))
+
+                elif analysis_type == "data_quality":
+                    if result.name == "null_counts":
+                        message_parts.append(f"\n**Data Quality Check:**")
+                        if result.rows and len(result.rows) > 0:
+                            row = result.rows[0]
+                            total = row[0] if len(row) > 0 else 0
+                            message_parts.append(f"- Total rows: {total:,}")
+
+                            # Count columns with nulls
+                            null_cols = 0
+                            for i in range(1, len(row)):
+                                if row[i] and row[i] > 0:
+                                    null_cols += 1
+
+                            if null_cols > 0:
+                                message_parts.append(f"- Columns with null values: {null_cols}")
+                            else:
+                                message_parts.append(f"- No null values detected")
+
+                    elif result.name == "duplicate_check":
+                        if result.rows and len(result.rows) > 0:
+                            row = result.rows[0]
+                            total = row[0] if len(row) > 0 else 0
+                            unique = row[1] if len(row) > 1 else 0
+                            duplicates = total - unique if total > unique else 0
+                            message_parts.append(f"- Duplicate rows: {duplicates:,}")
+
+                    tables.append(TableData(
+                        title=result.name.replace("_", " ").title(),
                         columns=result.columns,
                         rows=result.rows
                     ))
