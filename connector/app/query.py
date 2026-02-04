@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 DANGEROUS_KEYWORDS = [
     'DROP', 'DELETE', 'UPDATE', 'INSERT', 'ATTACH', 'COPY', 'EXPORT',
-    'CREATE', 'ALTER', 'TRUNCATE', 'REPLACE'
+    'CREATE', 'ALTER', 'TRUNCATE', 'REPLACE', 'PRAGMA'
 ]
 
 
@@ -24,9 +24,13 @@ class QueryTimeoutError(Exception):
 class QueryExecutor:
     def __init__(self):
         self.connection_cache: Dict[str, duckdb.DuckDBPyConnection] = {}
+        self.max_rows_per_query = 200
 
     def validate_sql(self, sql: str) -> Tuple[bool, str]:
-        sql_upper = sql.upper()
+        sql_upper = sql.upper().strip()
+
+        if not sql_upper.startswith('SELECT'):
+            return False, "Only SELECT queries are allowed"
 
         for keyword in DANGEROUS_KEYWORDS:
             pattern = r'\b' + keyword + r'\b'
@@ -39,9 +43,15 @@ class QueryExecutor:
         sql_upper = sql.upper().strip()
 
         if 'LIMIT' in sql_upper:
+            limit_match = re.search(r'LIMIT\s+(\d+)', sql_upper)
+            if limit_match:
+                limit_value = int(limit_match.group(1))
+                if limit_value > self.max_rows_per_query:
+                    sql = re.sub(r'LIMIT\s+\d+', f'LIMIT {self.max_rows_per_query}', sql, flags=re.IGNORECASE)
+                    logger.info(f"Reduced LIMIT from {limit_value} to {self.max_rows_per_query}")
             return sql
 
-        return f"SELECT * FROM ({sql}) LIMIT {config.max_rows_return}"
+        return f"SELECT * FROM ({sql}) LIMIT {self.max_rows_per_query}"
 
     async def get_connection(self, dataset_id: str, read_only: bool = True) -> duckdb.DuckDBPyConnection:
         if dataset_id in self.connection_cache:
@@ -51,15 +61,83 @@ class QueryExecutor:
         if not dataset:
             raise ValueError(f"Dataset not found: {dataset_id}")
 
-        if dataset["status"] != "ingested":
-            raise ValueError(f"Dataset {dataset_id} has not been ingested yet. Status: {dataset['status']}")
+        if dataset["status"] == "ingested":
+            db_path = ingestion_pipeline.get_db_path(dataset_id)
 
-        db_path = ingestion_pipeline.get_db_path(dataset_id)
+            if not db_path.exists():
+                raise ValueError(f"Database file not found for dataset {dataset_id}")
 
-        if not db_path.exists():
-            raise ValueError(f"Database file not found for dataset {dataset_id}")
+            conn = duckdb.connect(str(db_path), read_only=read_only)
+            self.connection_cache[dataset_id] = conn
+            return conn
+        else:
+            return await self.get_connection_from_file(dataset_id)
 
-        conn = duckdb.connect(str(db_path), read_only=read_only)
+    async def get_connection_from_file(self, dataset_id: str) -> duckdb.DuckDBPyConnection:
+        dataset = await storage.get_dataset(dataset_id)
+        if not dataset:
+            raise ValueError(f"Dataset not found: {dataset_id}")
+
+        file_path = dataset.get("filePath")
+        if not file_path:
+            raise ValueError(f"Dataset {dataset_id} has no file path")
+
+        from pathlib import Path
+        path = Path(file_path)
+        if not path.exists():
+            raise ValueError(f"File not found: {file_path}")
+
+        conn = duckdb.connect(':memory:')
+
+        file_extension = path.suffix.lower()
+
+        try:
+            if file_extension == '.csv':
+                conn.execute(f"""
+                    CREATE TABLE data AS
+                    SELECT * FROM read_csv_auto('{file_path}',
+                        header=true,
+                        auto_detect=true,
+                        ignore_errors=true)
+                """)
+                logger.info(f"Loaded CSV file into DuckDB: {file_path}")
+            elif file_extension in ['.xlsx', '.xls']:
+                try:
+                    import openpyxl
+                    import tempfile
+                    import csv
+
+                    wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+                    ws = wb.active
+
+                    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='') as tmp_file:
+                        csv_writer = csv.writer(tmp_file)
+                        for row in ws.iter_rows(values_only=True):
+                            csv_writer.writerow(row)
+                        tmp_path = tmp_file.name
+
+                    wb.close()
+
+                    conn.execute(f"""
+                        CREATE TABLE data AS
+                        SELECT * FROM read_csv_auto('{tmp_path}',
+                            header=true,
+                            auto_detect=true,
+                            ignore_errors=true)
+                    """)
+
+                    import os
+                    os.unlink(tmp_path)
+
+                    logger.info(f"Loaded Excel file into DuckDB: {file_path}")
+                except ImportError:
+                    raise ValueError("Excel file support requires openpyxl. Please install it or use CSV files.")
+            else:
+                raise ValueError(f"Unsupported file format: {file_extension}. Only CSV and XLSX are supported.")
+        except Exception as e:
+            logger.error(f"Failed to load file {file_path}: {e}")
+            raise ValueError(f"Failed to load file: {str(e)}")
+
         self.connection_cache[dataset_id] = conn
         return conn
 

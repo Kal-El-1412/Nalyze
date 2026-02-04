@@ -278,12 +278,6 @@ async def execute_queries(request: QueryExecuteRequest):
             detail=f"Dataset not found: {request.datasetId}"
         )
 
-    if dataset["status"] != "ingested":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Dataset {request.datasetId} has not been ingested yet. Current status: {dataset['status']}"
-        )
-
     try:
         results = await query_executor.execute_queries(request.datasetId, request.queries)
         return QueryExecuteResponse(results=results)

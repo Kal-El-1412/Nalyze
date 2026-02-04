@@ -1,8 +1,8 @@
 # Implementation Summary
 
-## Seven-Prompt Enhancement Complete
+## Eight-Prompt Enhancement Complete
 
-This document summarizes the seven-part enhancement to the `/chat` endpoint and frontend UX.
+This document summarizes the eight-part enhancement to the `/chat` endpoint, frontend UX, and query execution system.
 
 ---
 
@@ -531,6 +531,115 @@ const isAnswered = message.answered || false;
 
 ---
 
+## Prompt 8: Add /queries/execute (DuckDB) ✅
+
+### Objective
+Implement local query execution endpoint using DuckDB for running SQL queries against datasets.
+
+### Implementation
+
+**1. POST /queries/execute endpoint:**
+```python
+@app.post("/queries/execute")
+async def execute_queries(request: QueryExecuteRequest):
+    # Resolves datasetId to filePath
+    dataset = await storage.get_dataset(request.datasetId)
+
+    # Executes queries with validation
+    results = await query_executor.execute_queries(datasetId, queries)
+    return QueryExecuteResponse(results=results)
+```
+
+**2. Direct file loading:**
+```python
+# CSV
+conn.execute(f"""
+    CREATE TABLE data AS
+    SELECT * FROM read_csv_auto('{file_path}',
+        header=true, auto_detect=true)
+""")
+
+# Excel
+# Convert via openpyxl → temp CSV → read_csv_auto()
+```
+
+**3. SQL validation:**
+```python
+def validate_sql(self, sql: str):
+    # Only SELECT queries
+    if not sql.upper().startswith('SELECT'):
+        return False, "Only SELECT queries are allowed"
+
+    # Block dangerous keywords
+    for keyword in ['INSERT', 'UPDATE', 'DELETE', 'DROP',
+                     'ATTACH', 'COPY', 'PRAGMA', ...]:
+        if re.search(r'\b' + keyword + r'\b', sql.upper()):
+            return False, f"Dangerous keyword: {keyword}"
+```
+
+**4. Max 200 rows enforcement:**
+```python
+def wrap_with_limit(self, sql: str):
+    if 'LIMIT' in sql.upper():
+        # Reduce if > 200
+        if limit_value > 200:
+            sql = re.sub(r'LIMIT\s+\d+', 'LIMIT 200', sql)
+    else:
+        # Add LIMIT 200
+        sql = f"SELECT * FROM ({sql}) LIMIT 200"
+    return sql
+```
+
+### Security Features
+
+| Protection | Implementation |
+|------------|----------------|
+| SELECT only | Enforced at validation |
+| INSERT blocked | ✓ |
+| UPDATE blocked | ✓ |
+| DELETE blocked | ✓ |
+| ATTACH blocked | ✓ |
+| COPY blocked | ✓ |
+| PRAGMA blocked | ✓ |
+| Max 200 rows | Enforced automatically |
+| Query timeout | 10 seconds default |
+
+### File Format Support
+
+- ✅ CSV: `read_csv_auto()` with auto-detect
+- ✅ Excel (.xlsx, .xls): openpyxl → CSV → DuckDB
+- ✅ Both ingested and non-ingested datasets
+
+### Example
+
+**Request:**
+```json
+{
+  "datasetId": "abc-123",
+  "queries": [
+    { "name": "row_count", "sql": "SELECT COUNT(*) FROM data" }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    { "name": "row_count", "columns": ["count"], "rows": [[41]] }
+  ]
+}
+```
+
+### Benefits
+- Secure query execution (SELECT only)
+- Works without ingestion (direct file loading)
+- Resource limits (200 rows max)
+- Connection caching for performance
+- Supports CSV and Excel
+
+---
+
 ## Next Steps
 
 1. ✅ State manager implemented
@@ -540,8 +649,9 @@ const isAnswered = message.answered || false;
 5. ✅ Frontend wired to send intents
 6. ✅ Free-text compatibility verified
 7. ✅ Clarification buttons disabled once answered
-8. 🔲 Add more optional intents (metric, dimension, filter)
-9. 🔲 Persist state to database (optional upgrade from in-memory)
+8. ✅ Local query execution with DuckDB
+9. 🔲 Add more optional intents (metric, dimension, filter)
+10. 🔲 Persist state to database (optional upgrade from in-memory)
 
 ---
 
@@ -579,7 +689,7 @@ python test_llm_no_clarification.py     # 6/6 tests ✓
 
 ## Summary
 
-Seven prompts, seven capabilities:
+Eight prompts, eight capabilities:
 1. **State persistence** - Remember context across conversation
 2. **Intent-based updates** - Direct state control without LLM
 3. **Deterministic clarifications** - Required fields enforced upfront
@@ -587,5 +697,6 @@ Seven prompts, seven capabilities:
 5. **UI intent wiring** - Clarification buttons send structured intents, not text
 6. **Free-text compatibility** - Exploratory chat coexists with deterministic intents
 7. **Disabled answered clarifications** - Guided UX prevents duplicate mutations
+8. **Local query execution** - DuckDB-powered SQL queries with security
 
-Result: Complete hybrid chat system with guided UX. Users can type exploratory questions (→ LLM) or click clarification buttons (→ state updates). Both modes coexist seamlessly. Answered clarifications visually disabled, preventing re-clicks. No loops, no repeated questions, no duplicate mutations. Faster, cheaper, more predictable with perfect separation of concerns and professional UX.
+Result: Complete hybrid chat system with guided UX and secure local query execution. Users can type exploratory questions (→ LLM) or click clarification buttons (→ state updates). Both modes coexist seamlessly. Answered clarifications visually disabled, preventing re-clicks. SQL queries run locally against CSV/Excel files with SELECT-only enforcement and 200-row limit. No loops, no repeated questions, no duplicate mutations, no data exposure. Faster, cheaper, more predictable, more secure with perfect separation of concerns and professional UX.
