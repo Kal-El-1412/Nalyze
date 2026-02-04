@@ -302,7 +302,7 @@ export default function AppLayout() {
         title: `${job.type} - ${job.datasetId}`,
         status: job.status === 'done' ? 'completed' : job.status === 'error' ? 'failed' : 'running',
         stage: job.stage || undefined,
-        timestamp: new Date(job.startedAt || Date.now()).toLocaleTimeString(),
+        timestamp: new Date(job.startedAt || Date.now()).toISOString(),
         duration: job.finishedAt ? calculateDuration(job.startedAt, job.finishedAt) : undefined,
         startedAt: job.startedAt || undefined,
         finishedAt: job.finishedAt || undefined,
@@ -328,7 +328,7 @@ export default function AppLayout() {
         title: `${job.type} - ${job.datasetId}`,
         status: 'completed' as const,
         stage: 'done' as const,
-        timestamp: new Date(job.startedAt).toLocaleTimeString(),
+        timestamp: new Date(job.startedAt).toISOString(),
         duration: '2.3s',
         startedAt: job.startedAt,
         finishedAt: job.finishedAt,
@@ -563,7 +563,7 @@ export default function AppLayout() {
       id: Date.now().toString(),
       type: 'user',
       content,
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp: new Date().toISOString(),
     };
 
     setMessages([...messages, userMessage]);
@@ -573,7 +573,7 @@ export default function AppLayout() {
         id: (Date.now() + 1).toString(),
         type: 'waiting',
         content: 'Processing your request...',
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, waitingMessage]);
 
@@ -633,7 +633,7 @@ export default function AppLayout() {
         id: Date.now().toString(),
         type: 'clarification',
         content: response.question,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toISOString(),
         clarificationData: {
           question: response.question,
           choices: response.choices,
@@ -672,7 +672,7 @@ export default function AppLayout() {
         id: queriesMessageId,
         type: 'waiting',
         content: response.explanation || 'Running local queries...',
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toISOString(),
         queriesData: response.queries,
       };
       setMessages(prev => [...prev, queriesMessage]);
@@ -760,7 +760,7 @@ export default function AppLayout() {
         id: Date.now().toString(),
         type: 'assistant',
         content: response.message,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -788,7 +788,7 @@ export default function AppLayout() {
         id: Date.now().toString(),
         type: 'user',
         content: choice,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, userMessage]);
 

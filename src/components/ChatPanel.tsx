@@ -307,7 +307,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                 </label>
               </div>
             )}
-            <p className="text-xs mt-3 text-slate-500">{message.timestamp}</p>
+            <p className="text-xs mt-3 text-slate-500">{formatTimestamp(message.timestamp)}</p>
           </div>
         </div>
       );
@@ -338,7 +338,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                 ))}
               </div>
             )}
-            <p className="text-xs mt-3 text-amber-600">{message.timestamp}</p>
+            <p className="text-xs mt-3 text-amber-600">{formatTimestamp(message.timestamp)}</p>
           </div>
         </div>
       );
