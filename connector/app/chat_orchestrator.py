@@ -624,9 +624,14 @@ class ChatOrchestrator:
         elif response_type == "run_queries":
             queries = response_data.get("queries", [])
 
-            valid, error = sql_validator.validate_queries(queries)
+            valid, error = sql_validator.validate_queries(queries, safe_mode)
             if not valid:
                 logger.warning(f"SQL validation failed: {error}")
+                if safe_mode and "Safe Mode is ON" in error:
+                    return NeedsClarificationResponse(
+                        question=error,
+                        choices=["Ask a different question", "View dataset info"]
+                    )
                 return NeedsClarificationResponse(
                     question=f"I generated an invalid query: {error}. Let me try again - could you rephrase your question?",
                     choices=["Rephrase question", "View dataset info"]

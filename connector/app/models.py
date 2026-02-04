@@ -222,6 +222,7 @@ class QueryExecuteRequest(BaseModel):
     datasetId: str = Field(..., description="ID of the dataset to query")
     queries: List[Dict[str, str]] = Field(..., description="List of queries with name and sql")
     privacyMode: Optional[bool] = True
+    safeMode: Optional[bool] = False
 
 
 class QueryResult(BaseModel):

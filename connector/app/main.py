@@ -276,12 +276,18 @@ async def execute_queries(request_data: Request):
         privacy_header = request_data.headers.get("X-Privacy-Mode", "on")
         privacy_mode = privacy_header.lower() == "on"
 
+    safe_mode = body.get("safeMode")
+    if safe_mode is None:
+        safe_mode_header = request_data.headers.get("X-Safe-Mode", "off")
+        safe_mode = safe_mode_header.lower() == "on"
+
     body["privacyMode"] = privacy_mode
+    body["safeMode"] = safe_mode
     request = QueryExecuteRequest(**body)
 
     logger.info(
         f"Execute queries requested for dataset {request.datasetId}, "
-        f"{len(request.queries)} queries, privacyMode={request.privacyMode}"
+        f"{len(request.queries)} queries, privacyMode={request.privacyMode}, safeMode={request.safeMode}"
     )
 
     dataset = await storage.get_dataset(request.datasetId)
@@ -289,6 +295,16 @@ async def execute_queries(request_data: Request):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dataset not found: {request.datasetId}"
+        )
+
+    # Validate queries with Safe Mode enforcement
+    from app.sql_validator import sql_validator
+    valid, error = sql_validator.validate_queries(request.queries, safe_mode=request.safeMode)
+    if not valid:
+        logger.warning(f"SQL validation failed: {error}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error
         )
 
     try:
