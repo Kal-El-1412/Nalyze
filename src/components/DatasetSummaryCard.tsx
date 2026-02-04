@@ -1,4 +1,4 @@
-import { Database, Hash, Type, AlertTriangle, Eye, Calendar, ShieldCheck } from 'lucide-react';
+import { Database, Hash, Type, AlertTriangle, Eye, Calendar, ShieldCheck, Shield } from 'lucide-react';
 import { DatasetCatalog } from '../services/connectorApi';
 
 interface DatasetSummaryCardProps {
@@ -6,6 +6,7 @@ interface DatasetSummaryCardProps {
   datasetName: string;
   onViewSchema: () => void;
   privacyMode?: boolean;
+  safeMode?: boolean;
 }
 
 export default function DatasetSummaryCard({
@@ -13,6 +14,7 @@ export default function DatasetSummaryCard({
   datasetName,
   onViewSchema,
   privacyMode = true,
+  safeMode = false,
 }: DatasetSummaryCardProps) {
   if (!catalog) return null;
 
@@ -28,7 +30,7 @@ export default function DatasetSummaryCard({
               <Database className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-semibold text-slate-900">Dataset Summary</h3>
                 {hasPII && (
                   <div
@@ -42,6 +44,16 @@ export default function DatasetSummaryCard({
                     <span>Privacy: {privacyMode ? 'ON' : 'OFF'}</span>
                   </div>
                 )}
+                <div
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    safeMode
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-slate-100 text-slate-600 border border-slate-300'
+                  }`}
+                >
+                  <Shield className="w-3 h-3" />
+                  <span>Safe Mode: {safeMode ? 'ON' : 'OFF'}</span>
+                </div>
               </div>
               <p className="text-xs text-slate-600">{datasetName}</p>
             </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check, Shield } from 'lucide-react';
 import DatasetSummaryCard from './DatasetSummaryCard';
 import { DatasetCatalog } from '../services/connectorApi';
 import { saveDatasetDefault, inferDefaultKeyFromQuestion } from '../utils/datasetDefaults';
@@ -30,6 +30,7 @@ interface ChatPanelProps {
   datasetName?: string;
   catalog?: DatasetCatalog | null;
   privacyMode?: boolean;
+  safeMode?: boolean;
 }
 
 interface AnalysisTemplate {
@@ -151,7 +152,7 @@ const suggestions = [
   { icon: BarChart3, text: 'Top categories', color: 'text-emerald-600 bg-emerald-50' },
 ];
 
-export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog, privacyMode = true }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog, privacyMode = true, safeMode = false }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -475,13 +476,27 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
 
       <div className="p-4 border-t border-slate-200 bg-slate-50">
         {activeDataset && catalog && datasetName && onShowDatasetSummary && (
-          <div className="mb-3">
+          <div className="mb-3 space-y-2">
             <DatasetSummaryCard
               catalog={catalog}
               datasetName={datasetName}
               onViewSchema={onShowDatasetSummary}
               privacyMode={privacyMode}
+              safeMode={safeMode}
             />
+            {safeMode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-blue-900 mb-1">Safe Mode Active</p>
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      Only aggregated queries allowed. Queries must use COUNT, SUM, AVG, MIN, MAX, or GROUP BY. Raw row data cannot be accessed.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div className="flex gap-2 relative">

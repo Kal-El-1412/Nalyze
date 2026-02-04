@@ -89,6 +89,7 @@ export default function AppLayout() {
     maskPII: true,
   });
   const [privacyMode, setPrivacyMode] = useState(true);
+  const [safeMode, setSafeMode] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [showDisconnectedBanner, setShowDisconnectedBanner] = useState(false);
@@ -121,15 +122,26 @@ export default function AppLayout() {
       setPrivacyMode(savedPrivacyMode === 'true');
     }
 
+    const savedSafeMode = localStorage.getItem('safeMode');
+    if (savedSafeMode !== null) {
+      setSafeMode(savedSafeMode === 'true');
+    }
+
     const handleStorageChange = () => {
       const updatedPrivacyMode = localStorage.getItem('privacyMode');
       if (updatedPrivacyMode !== null) {
         setPrivacyMode(updatedPrivacyMode === 'true');
       }
+
+      const updatedSafeMode = localStorage.getItem('safeMode');
+      if (updatedSafeMode !== null) {
+        setSafeMode(updatedSafeMode === 'true');
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('privacyModeChange', handleStorageChange);
+    window.addEventListener('safeModeChange', handleStorageChange);
 
     const unsubscribe = diagnostics.subscribe((events) => {
       const errors = events.filter(e => e.type === 'error').length;
@@ -148,6 +160,7 @@ export default function AppLayout() {
       clearInterval(healthInterval);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('privacyModeChange', handleStorageChange);
+      window.removeEventListener('safeModeChange', handleStorageChange);
     };
   }, []);
 
@@ -572,6 +585,8 @@ export default function AppLayout() {
         datasetId: activeDataset,
         conversationId,
         message: content,
+        privacyMode,
+        safeMode,
         defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
       });
 
@@ -728,6 +743,8 @@ export default function AppLayout() {
             datasetId: activeDataset,
             conversationId,
             message: 'Here are the query results.',
+            privacyMode,
+            safeMode,
             resultsContext: { results: queryResults.results },
             defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
           })
@@ -781,6 +798,8 @@ export default function AppLayout() {
           conversationId,
           intent,
           value: choice,
+          privacyMode,
+          safeMode,
         });
 
         if (result.success) {
@@ -791,6 +810,8 @@ export default function AppLayout() {
             datasetId: activeDataset,
             conversationId,
             message: 'continue',
+            privacyMode,
+            safeMode,
           });
 
           if (followUpResult.success) {
@@ -1000,6 +1021,7 @@ export default function AppLayout() {
                 datasetName={activeDataset ? datasets.find(d => d.id === activeDataset)?.name : undefined}
                 catalog={catalog}
                 privacyMode={privacyMode}
+                safeMode={safeMode}
               />
             </div>
             <div className="w-full lg:w-[500px] max-h-[400px] lg:max-h-none">
