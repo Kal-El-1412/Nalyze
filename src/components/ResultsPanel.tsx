@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText, Table, Shield, Download, Copy, CheckCircle } from 'lucide-react';
+import { TableSkeleton } from './LoadingSkeleton';
 
 interface TableData {
   name?: string;
@@ -14,6 +15,7 @@ interface ResultsPanelProps {
   onExportReport?: () => void;
   onCopySummary?: () => void;
   hasContent?: boolean;
+  isLoading?: boolean;
 }
 
 function renderMarkdown(markdown: string) {
@@ -73,7 +75,8 @@ export default function ResultsPanel({
   auditLog,
   onExportReport,
   onCopySummary,
-  hasContent = false
+  hasContent = false,
+  isLoading = false
 }: ResultsPanelProps) {
   const [activeTab, setActiveTab] = useState<'summary' | 'tables' | 'audit'>('summary');
   const [copied, setCopied] = useState(false);
@@ -229,17 +232,28 @@ export default function ResultsPanel({
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'summary' && (
           <div>
-            {summary ? (
+            {isLoading ? (
+              <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-6 bg-slate-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-slate-100 rounded w-full"></div>
+                  <div className="h-4 bg-slate-100 rounded w-5/6"></div>
+                  <div className="h-4 bg-slate-100 rounded w-4/6"></div>
+                </div>
+              </div>
+            ) : summary ? (
               <div className="prose max-w-none">
-                <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
                   {renderMarkdown(summary)}
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-500">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No summary available</p>
-                <p className="text-xs mt-1">Run an analysis to see results here</p>
+              <div className="text-center py-16 px-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
+                  <FileText className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">No summary yet</h3>
+                <p className="text-sm text-slate-500">Ask a question to see analysis results here</p>
               </div>
             )}
           </div>
@@ -247,17 +261,21 @@ export default function ResultsPanel({
 
         {activeTab === 'tables' && (
           <div>
-            {tableData.length > 0 ? (
+            {isLoading ? (
+              <TableSkeleton />
+            ) : tableData.length > 0 ? (
               <div>
                 {Array.isArray(tableData) && tableData.length > 0 && isNewTableFormat(tableData[0])
                   ? tableData.map((table, idx) => renderNewFormatTable(table as TableData, idx))
                   : renderOldFormatTable(tableData)}
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-500">
-                <Table className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No table data available</p>
-                <p className="text-xs mt-1">Query your data to see tables here</p>
+              <div className="text-center py-16 px-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
+                  <Table className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">No tables yet</h3>
+                <p className="text-sm text-slate-500">Query results will appear here</p>
               </div>
             )}
           </div>
@@ -295,10 +313,12 @@ export default function ResultsPanel({
                 })}
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-500">
-                <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No audit entries</p>
-                <p className="text-xs mt-1">Data operations will be logged here</p>
+              <div className="text-center py-16 px-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
+                  <Shield className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">No audit logs yet</h3>
+                <p className="text-sm text-slate-500">Data operations will be logged here</p>
               </div>
             )}
           </div>

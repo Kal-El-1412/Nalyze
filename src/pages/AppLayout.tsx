@@ -11,6 +11,7 @@ import DatasetSummary from '../components/DatasetSummary';
 import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
+import Toast from '../components/Toast';
 import { connectorApi, Dataset, Job, ChatResponse, ApiError, DatasetCatalog } from '../services/connectorApi';
 import { generateHTMLReport, generateJSONBundle, downloadHTMLReport, downloadJSONBundle, downloadAsZIP, extractSummaryText, copyToClipboard } from '../utils/reportGenerator';
 import { loadTelegramSettings, sendJobCompletionNotification } from '../utils/telegramNotifications';
@@ -759,8 +760,8 @@ export default function AppLayout() {
         errorCount={errorCount}
       />
 
-      <div className="flex-1 flex">
-        <div className="w-80 bg-white border-r border-slate-200">
+      <div className="flex-1 flex flex-col lg:flex-row">
+        <div className="w-full lg:w-80 bg-white border-r border-slate-200">
           {activeSection === 'datasets' && (
             <DatasetsPanel
               datasets={datasets}
@@ -768,6 +769,7 @@ export default function AppLayout() {
               onSelectDataset={setActiveDataset}
               onAddDataset={() => setShowConnectModal(true)}
               onDeleteDataset={handleDeleteDataset}
+              isConnected={connectorStatus === 'connected'}
             />
           )}
           {activeSection === 'jobs' && <JobsPanel jobs={jobs} />}
@@ -872,8 +874,8 @@ export default function AppLayout() {
             </div>
           </div>
 
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1">
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+            <div className="flex-1 min-h-[400px] lg:min-h-0">
               <ChatPanel
                 messages={messages}
                 onSendMessage={handleSendMessage}
@@ -885,7 +887,7 @@ export default function AppLayout() {
                 catalog={catalog}
               />
             </div>
-            <div className="w-[500px]">
+            <div className="w-full lg:w-[500px] max-h-[400px] lg:max-h-none">
               <ResultsPanel
                 summary={resultsData.summary}
                 tableData={resultsData.tableData}
@@ -916,10 +918,11 @@ export default function AppLayout() {
       )}
 
       {showToast && (
-        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-slide-up z-50">
-          <CheckCircle className="w-5 h-5 text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
+        <Toast
+          message={toastMessage}
+          variant="success"
+          onClose={() => setShowToast(false)}
+        />
       )}
 
       {errorToast && (

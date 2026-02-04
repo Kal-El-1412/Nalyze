@@ -88,19 +88,21 @@ export default function JobsPanel({ jobs }: JobsPanelProps) {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {jobs.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No jobs yet</p>
-              <p className="text-xs mt-1">Analysis jobs will appear here</p>
+            <div className="text-center py-16 px-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
+                <Clock className="w-8 h-8 text-slate-400" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-900 mb-1">No jobs yet</h3>
+              <p className="text-sm text-slate-500">Processing jobs will appear here</p>
             </div>
           ) : (
             jobs.map((job) => (
               <button
                 key={job.id}
                 onClick={() => setSelectedJob(job)}
-                className={`w-full p-4 rounded-lg border ${getStatusColor(
+                className={`w-full p-4 rounded-xl border-2 ${getStatusColor(
                   job.status
-                )} transition-all hover:shadow-md text-left group`}
+                )} transition-all hover:shadow-sm text-left group`}
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-0.5">{getStatusIcon(job.status)}</div>
