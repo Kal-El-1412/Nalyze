@@ -618,8 +618,21 @@ export default function AppLayout() {
 
   const handleRetryConnection = async () => {
     setIsRetrying(true);
-    diagnostics.info('Connector', 'Retrying connection...');
-    await checkConnectorHealth();
+    diagnostics.info('Connector', 'Retrying connection to connector...');
+
+    const health = await connectorApi.checkHealth();
+
+    if (health) {
+      setConnectorStatus('connected');
+      setConnectorVersion(health.version);
+      diagnostics.success('Connector', `Successfully connected to connector v${health.version}`);
+      showToastMessage(`Connected to connector v${health.version}`);
+    } else {
+      setConnectorStatus('disconnected');
+      diagnostics.error('Connector', 'Failed to connect to connector', `Unable to reach ${connectorApi.getConnectorUrl()}/health`);
+      showToastMessage('Connection failed. Check if connector is running.');
+    }
+
     setIsRetrying(false);
   };
 
@@ -658,7 +671,13 @@ export default function AppLayout() {
               onDeleteReport={handleDeleteReport}
             />
           )}
-          {activeSection === 'diagnostics' && <DiagnosticsPanel />}
+          {activeSection === 'diagnostics' && (
+            <DiagnosticsPanel
+              connectorStatus={connectorStatus}
+              connectorVersion={connectorVersion}
+              onRetryConnection={handleRetryConnection}
+            />
+          )}
         </div>
 
         <div className="flex-1 flex flex-col">
