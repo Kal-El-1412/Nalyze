@@ -776,6 +776,16 @@ export default function AppLayout() {
     }
   };
 
+  const normalizeTimePeriod = (choice: string): string => {
+    const timePeriodMap: Record<string, string> = {
+      'Last 7 days': 'last_7_days',
+      'Last 30 days': 'last_30_days',
+      'Last 90 days': 'last_90_days',
+      'All time': 'all_time',
+    };
+    return timePeriodMap[choice] || choice;
+  };
+
   const handleClarificationResponse = async (choice: string, intent?: string) => {
     if (!activeDataset) {
       showToastMessage('Please select a dataset first');
@@ -792,12 +802,17 @@ export default function AppLayout() {
       };
       setMessages(prev => [...prev, userMessage]);
 
+      // Normalize time period values
+      const normalizedValue = intent === 'set_time_period'
+        ? normalizeTimePeriod(choice)
+        : choice;
+
       if (connectorStatus === 'connected') {
         const result = await connectorApi.sendChatMessage({
           datasetId: activeDataset,
           conversationId,
           intent,
-          value: choice,
+          value: normalizedValue,
           privacyMode,
           safeMode,
         });
