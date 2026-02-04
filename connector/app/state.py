@@ -50,7 +50,15 @@ class ConversationStateManager:
                 logger.info(f"Creating new state for conversation: {conversation_id}")
                 self._states[conversation_id] = self._create_default_state(conversation_id)
 
-            # Update fields
+            # Special handling for context - merge instead of replace
+            if "context" in fields:
+                if "context" not in self._states[conversation_id]:
+                    self._states[conversation_id]["context"] = {}
+                self._states[conversation_id]["context"].update(fields["context"])
+                # Remove context from fields to avoid double-updating
+                fields = {k: v for k, v in fields.items() if k != "context"}
+
+            # Update remaining fields
             self._states[conversation_id].update(fields)
 
             # Always update last_updated timestamp
