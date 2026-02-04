@@ -345,12 +345,19 @@ export default function AppLayout() {
     type: 'local' | 'cloud',
     data: { name?: string; filePath?: string; file?: File }
   ) => {
-    if (type === 'local' && data.name && data.filePath) {
-      const result = await connectorApi.registerDataset({
-        name: data.name,
-        sourceType: 'local_file',
-        filePath: data.filePath,
-      });
+    if (type === 'local' && data.name) {
+      let result = null;
+
+      if (data.file) {
+        showToastMessage(`Uploading ${data.name}...`);
+        result = await connectorApi.uploadDataset(data.file, data.name);
+      } else if (data.filePath) {
+        result = await connectorApi.registerDataset({
+          name: data.name,
+          sourceType: 'local_file',
+          filePath: data.filePath,
+        });
+      }
 
       if (result) {
         showToastMessage(`Successfully registered ${data.name}`);

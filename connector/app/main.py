@@ -1,8 +1,10 @@
 import logging
 import os
+import tempfile
+import shutil
 from contextlib import asynccontextmanager
 from typing import List
-from fastapi import FastAPI, Request, status, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, status, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -144,6 +146,52 @@ async def register_dataset(request: DatasetRegisterRequest):
     )
 
     return DatasetRegisterResponse(datasetId=dataset["datasetId"])
+
+
+@app.post("/datasets/upload", response_model=DatasetRegisterResponse, status_code=status.HTTP_201_CREATED)
+async def upload_dataset(
+    file: UploadFile = File(...),
+    name: str = Form(...)
+):
+    logger.info(f"Uploading dataset: {name}, file: {file.filename}")
+
+    supported_extensions = {".csv", ".xlsx", ".xls", ".parquet"}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+
+    if file_ext not in supported_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type: {file_ext}. Supported: {', '.join(supported_extensions)}"
+        )
+
+    temp_dir = tempfile.gettempdir()
+    uploads_dir = os.path.join(temp_dir, "cloaksheets_uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    temp_file_path = os.path.join(uploads_dir, f"{name}_{file.filename}")
+
+    try:
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        logger.info(f"File saved to: {temp_file_path}")
+
+        dataset = await storage.register_dataset(
+            name=name,
+            source_type="local_file",
+            file_path=temp_file_path
+        )
+
+        return DatasetRegisterResponse(datasetId=dataset["datasetId"])
+
+    except Exception as e:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        logger.error(f"Error uploading file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload file: {str(e)}"
+        )
 
 
 @app.get("/datasets", response_model=List[Dataset])

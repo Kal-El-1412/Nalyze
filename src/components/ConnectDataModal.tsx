@@ -44,8 +44,8 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
   const handleConnect = () => {
     if (selectedType === 'cloud' && file) {
       onConnect('cloud', { file });
-    } else if (selectedType === 'local' && datasetName && (filePath || localFile)) {
-      onConnect('local', { name: datasetName, filePath: filePath || localFile?.name || '' });
+    } else if (selectedType === 'local' && datasetName && localFile) {
+      onConnect('local', { name: datasetName, file: localFile, filePath: filePath });
     }
     onClose();
     setSelectedType(null);

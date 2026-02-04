@@ -183,6 +183,28 @@ class ConnectorAPI {
     }
   }
 
+  async uploadDataset(file: File, name: string): Promise<RegisterDatasetResponse | null> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', name);
+
+      const response = await fetch(`${this.baseUrl}/datasets/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload dataset: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading dataset:', error);
+      return null;
+    }
+  }
+
   async getDatasets(): Promise<Dataset[]> {
     try {
       const response = await fetch(`${this.baseUrl}/datasets`, {
