@@ -438,6 +438,7 @@ async def handle_intent(request: ChatOrchestratorRequest):
     logger.info(f"Handling intent: {request.intent} = {request.value}")
 
     state = state_manager.get_state(request.conversationId)
+    logger.info(f"[BEFORE UPDATE] State context: {state.get('context', {})}")
 
     intent_field_map = {
         "set_analysis_type": "analysis_type",
@@ -458,21 +459,31 @@ async def handle_intent(request: ChatOrchestratorRequest):
     else:
         update_data = {request.intent: request.value}
 
+    logger.info(f"Update data: {update_data}")
+
     if "context" not in state:
         state["context"] = {}
 
     state["context"].update(update_data)
+    logger.info(f"[AFTER MERGE] Merged context: {state['context']}")
+
     state_manager.update_state(request.conversationId, context=state["context"])
+    logger.info(f"[AFTER PERSIST] Called update_state")
 
     updated_state = state_manager.get_state(request.conversationId)
     context = updated_state.get("context", {})
+    logger.info(f"[AFTER RELOAD] Reloaded context: {context}")
 
     message = f"Updated {field_name.replace('_', ' ')} to '{request.value}'"
 
     logger.info(f"State updated for conversation {request.conversationId}: {field_name} = {request.value}")
 
     # Check if state is ready after update
-    if "analysis_type" in context and "time_period" in context:
+    has_analysis = "analysis_type" in context
+    has_time_period = "time_period" in context
+    logger.info(f"Readiness check: analysis_type={has_analysis}, time_period={has_time_period}")
+
+    if has_analysis and has_time_period:
         logger.info(f"State is ready for conversation {request.conversationId}, moving to query generation")
         # State is ready, generate queries
         response = await chat_orchestrator.process(request)

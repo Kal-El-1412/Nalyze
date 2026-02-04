@@ -646,27 +646,8 @@ export default function AppLayout() {
     } else if (response.type === 'intent_acknowledged') {
       // Intent was acknowledged, no message needed in chat
       // The state has been updated on the backend
+      // Note: The clarification is already marked as answered in handleClarificationResponse
       console.log(`Intent ${response.intent} acknowledged with value:`, response.value);
-
-      // Mark the corresponding clarification message as answered
-      setMessages(prev => {
-        // Find the last unanswered clarification with matching intent
-        const lastClarificationIndex = [...prev].reverse().findIndex(
-          m => m.type === 'clarification' &&
-               m.clarificationData?.intent === response.intent &&
-               !m.answered
-        );
-
-        if (lastClarificationIndex === -1) return prev;
-
-        // Convert back to original index
-        const actualIndex = prev.length - 1 - lastClarificationIndex;
-
-        // Mark as answered
-        return prev.map((msg, idx) =>
-          idx === actualIndex ? { ...msg, answered: true } : msg
-        );
-      });
     } else if (response.type === 'run_queries') {
       const queriesMessageId = Date.now().toString();
       const queriesMessage: Message = {
@@ -819,6 +800,26 @@ export default function AppLayout() {
         });
 
         if (result.success) {
+          // Mark the clarification as answered BEFORE handling the response
+          setMessages(prev => {
+            // Find the last unanswered clarification with matching intent
+            const lastClarificationIndex = [...prev].reverse().findIndex(
+              m => m.type === 'clarification' &&
+                   m.clarificationData?.intent === intent &&
+                   !m.answered
+            );
+
+            if (lastClarificationIndex === -1) return prev;
+
+            // Convert back to original index
+            const actualIndex = prev.length - 1 - lastClarificationIndex;
+
+            // Mark as answered
+            return prev.map((msg, idx) =>
+              idx === actualIndex ? { ...msg, answered: true } : msg
+            );
+          });
+
           await handleChatResponse(result.data);
 
           // Only send follow-up if backend returned intent_acknowledged
