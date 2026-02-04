@@ -21,6 +21,7 @@ export default function Settings() {
     errors: true,
     insights: false,
   });
+  const [privacyMode, setPrivacyMode] = useState(true);
   const [privacy, setPrivacy] = useState({
     allowSampleRows: false,
     maskPII: true,
@@ -63,6 +64,13 @@ export default function Settings() {
       setDemoMode(savedDemoMode === 'true');
     }
 
+    const savedPrivacyMode = localStorage.getItem('privacyMode');
+    if (savedPrivacyMode !== null) {
+      setPrivacyMode(savedPrivacyMode === 'true');
+    } else {
+      setPrivacyMode(true);
+    }
+
     const savedTelegram = loadTelegramSettings();
     setTelegram(savedTelegram);
   }, []);
@@ -73,6 +81,7 @@ export default function Settings() {
     }
     localStorage.setItem('notifications', JSON.stringify(notifications));
     localStorage.setItem('privacySettings', JSON.stringify(privacy));
+    localStorage.setItem('privacyMode', privacyMode.toString());
     localStorage.setItem('demoMode', demoMode.toString());
     saveTelegramSettings(telegram);
     connectorApi.setBaseUrl(connectorUrl);
@@ -258,6 +267,34 @@ export default function Settings() {
             </div>
 
             <div className="space-y-4">
+              <label className="flex items-center justify-between p-4 border-2 border-emerald-200 rounded-lg hover:bg-emerald-50 cursor-pointer transition-colors bg-emerald-50/50">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="font-semibold text-slate-900">Privacy Mode (mask personal data)</div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      privacyMode
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                        : 'bg-slate-100 text-slate-600 border border-slate-300'
+                    }`}>
+                      {privacyMode ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    When enabled, detected PII columns are masked in results and excluded from AI prompts.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={privacyMode}
+                  onChange={(e) => setPrivacyMode(e.target.checked)}
+                  className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 ml-4"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Advanced Privacy Settings</h3>
+              <div className="space-y-4">
               <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                 <div>
                   <div className="font-medium text-slate-900">Allow sample rows to be sent to AI</div>
@@ -298,6 +335,7 @@ export default function Settings() {
                   className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 disabled:opacity-50"
                 />
               </label>
+            </div>
             </div>
           </div>
 
