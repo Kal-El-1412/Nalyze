@@ -1,8 +1,8 @@
 # Implementation Summary
 
-## Four-Prompt Enhancement Complete
+## Five-Prompt Enhancement Complete
 
-This document summarizes the four-part enhancement to the `/chat` endpoint.
+This document summarizes the five-part enhancement to the `/chat` endpoint.
 
 ---
 
@@ -342,13 +342,62 @@ POST /chat { message: "Compare sales by region" }
 
 ---
 
+---
+
+## Prompt 5: Wire Clarification Buttons to Intents ✅
+
+### Objective
+Update chat UI so clarification buttons send structured intents instead of free-text messages.
+
+### Implementation
+
+**Updated TypeScript interfaces:**
+- `ChatRequest` now supports optional `intent` and `value` fields
+- Added `IntentAcknowledgmentResponse` type
+- Updated `ChatResponse` union type to include intent acknowledgments
+
+**Updated ChatPanel component:**
+- Added `intent` field to `Message.clarificationData`
+- Updated `onClarificationResponse` prop to accept intent parameter
+- Click handler passes intent to parent component
+
+**Updated AppLayout component:**
+- Added `detectIntentFromQuestion()` to identify intent type from question text
+- Updated `handleChatResponse()` to attach intent to clarification messages
+- Updated `handleClarificationResponse()` to send intent requests
+- Added handling for `intent_acknowledged` response type
+
+**Intent detection logic:**
+```typescript
+"type of analysis" → set_analysis_type
+"time period" → set_time_period
+```
+
+**Flow:**
+1. Backend returns clarification with question
+2. Frontend detects intent type from question text
+3. User clicks clarification button
+4. Frontend sends intent request (NO message field)
+5. Backend updates state and returns acknowledgment
+6. Frontend continues conversation automatically
+7. Next clarification or query generation
+
+### Benefits
+- Clicking buttons updates state deterministically
+- No LLM interpretation of user choice
+- Instant state updates (no LLM latency)
+- Same clarification never shown twice
+- Predictable user experience
+
+---
+
 ## Next Steps
 
 1. ✅ State manager implemented
 2. ✅ Intent-based requests supported
 3. ✅ Deterministic clarifications added
 4. ✅ LLM clarifications disabled
-5. 🔲 Frontend integration (update ChatPanel to handle new response types)
+5. ✅ Frontend wired to send intents
 6. 🔲 Add more optional intents (metric, dimension, filter)
 7. 🔲 Persist state to database (optional upgrade from in-memory)
 
@@ -388,10 +437,11 @@ python test_llm_no_clarification.py     # 6/6 tests ✓
 
 ## Summary
 
-Four prompts, four capabilities:
+Five prompts, five capabilities:
 1. **State persistence** - Remember context across conversation
 2. **Intent-based updates** - Direct state control without LLM
 3. **Deterministic clarifications** - Required fields enforced upfront
 4. **LLM clarification prevention** - All questions from backend, never from LLM
+5. **UI intent wiring** - Clarification buttons send structured intents, not text
 
-Result: Faster, cheaper, more predictable chat API with perfect separation of concerns. Backend handles clarifications deterministically, LLM handles analysis with full context.
+Result: Complete end-to-end intent-based clarification system. Frontend buttons → Backend state → LLM analysis. Faster, cheaper, more predictable with perfect separation of concerns.

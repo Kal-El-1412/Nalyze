@@ -14,6 +14,7 @@ interface Message {
     question: string;
     choices: string[];
     allowFreeText: boolean;
+    intent?: string;  // The intent type for this clarification (e.g., 'set_analysis_type', 'set_time_period')
   };
   queriesData?: Array<{ name: string; sql: string }>;
 }
@@ -21,7 +22,7 @@ interface Message {
 interface ChatPanelProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
-  onClarificationResponse: (choice: string) => void;
+  onClarificationResponse: (choice: string, intent?: string) => void;
   onTogglePin?: (messageId: string) => void;
   onShowDatasetSummary?: () => void;
   activeDataset?: string | null;
@@ -231,7 +232,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
         saveDatasetDefault(datasetName, defaultKey, choice);
       }
     }
-    onClarificationResponse(choice);
+    onClarificationResponse(choice, message.clarificationData?.intent);
   };
 
   const renderMessage = (message: Message) => {

@@ -46,7 +46,9 @@ export interface QueryResult {
 export interface ChatRequest {
   datasetId: string;
   conversationId: string;
-  message: string;
+  message?: string;
+  intent?: string;
+  value?: any;
   resultsContext?: {
     results: QueryResult[];
   };
@@ -100,7 +102,17 @@ export interface FinalAnswerResponse {
   };
 }
 
-export type ChatResponse = ClarificationResponse | RunQueriesResponse | FinalAnswerResponse;
+export interface IntentAcknowledgmentResponse {
+  type: 'intent_acknowledged';
+  intent: string;
+  value: any;
+  state: {
+    conversation_id: string;
+    context: Record<string, any>;
+  };
+}
+
+export type ChatResponse = ClarificationResponse | RunQueriesResponse | FinalAnswerResponse | IntentAcknowledgmentResponse;
 
 export interface DatasetColumn {
   name: string;

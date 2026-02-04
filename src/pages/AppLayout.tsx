@@ -48,6 +48,7 @@ interface Message {
     question: string;
     choices: string[];
     allowFreeText: boolean;
+    intent?: string;
   };
   queriesData?: Array<{ name: string; sql: string }>;
 }
@@ -576,8 +577,24 @@ export default function AppLayout() {
     }
   };
 
+  const detectIntentFromQuestion = (question: string): string | undefined => {
+    const lowerQuestion = question.toLowerCase();
+
+    if (lowerQuestion.includes('type of analysis') || lowerQuestion.includes('analysis would you like')) {
+      return 'set_analysis_type';
+    }
+
+    if (lowerQuestion.includes('time period') || lowerQuestion.includes('time range')) {
+      return 'set_time_period';
+    }
+
+    return undefined;
+  };
+
   const handleChatResponse = async (response: ChatResponse) => {
     if (response.type === 'needs_clarification') {
+      const intent = detectIntentFromQuestion(response.question);
+
       const clarificationMessage: Message = {
         id: Date.now().toString(),
         type: 'clarification',
@@ -587,9 +604,14 @@ export default function AppLayout() {
           question: response.question,
           choices: response.choices,
           allowFreeText: response.allowFreeText,
+          intent,
         },
       };
       setMessages(prev => [...prev, clarificationMessage]);
+    } else if (response.type === 'intent_acknowledged') {
+      // Intent was acknowledged, no message needed in chat
+      // The state has been updated on the backend
+      console.log(`Intent ${response.intent} acknowledged with value:`, response.value);
     } else if (response.type === 'run_queries') {
       const queriesMessageId = Date.now().toString();
       const queriesMessage: Message = {
@@ -698,8 +720,59 @@ export default function AppLayout() {
     }
   };
 
-  const handleClarificationResponse = (choice: string) => {
-    handleSendMessage(choice);
+  const handleClarificationResponse = async (choice: string, intent?: string) => {
+    if (!activeDataset) {
+      showToastMessage('Please select a dataset first');
+      return;
+    }
+
+    // If we have an intent, send structured intent request
+    if (intent) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        type: 'user',
+        content: choice,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      if (connectorStatus === 'connected') {
+        const result = await connectorApi.sendChatMessage({
+          datasetId: activeDataset,
+          conversationId,
+          intent,
+          value: choice,
+        });
+
+        if (result.success) {
+          await handleChatResponse(result.data);
+
+          // After acknowledging the intent, send a follow-up message to continue the conversation
+          const followUpResult = await connectorApi.sendChatMessage({
+            datasetId: activeDataset,
+            conversationId,
+            message: 'continue',
+          });
+
+          if (followUpResult.success) {
+            await handleChatResponse(followUpResult.data);
+          }
+        } else {
+          const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+          diagnostics.error('Intent', 'Failed to send intent', errorDetails);
+          setErrorToast(result.error);
+        }
+      } else {
+        // Demo mode fallback
+        setTimeout(async () => {
+          const mockResponse = connectorApi.getMockChatResponse(choice);
+          await handleChatResponse(mockResponse);
+        }, 500);
+      }
+    } else {
+      // No intent, send as regular message
+      handleSendMessage(choice);
+    }
   };
 
   const handleTogglePin = (messageId: string) => {
