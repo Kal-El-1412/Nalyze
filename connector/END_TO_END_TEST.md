@@ -357,6 +357,14 @@ User Message: "continue"
 - [x] Both modes coexist seamlessly
 - [x] No loops from button clicks
 
+### ✅ Prompt 7: Disable Clarifications Once Answered
+- [x] Clarifications marked as answered after intent acknowledged
+- [x] Buttons disabled on answered clarifications
+- [x] Visual feedback (grey styling, "Answered" badge)
+- [x] Cannot re-click answered buttons
+- [x] No duplicate state mutations
+- [x] Guided, linear UX experience
+
 ---
 
 ## Network Request Trace
@@ -496,7 +504,7 @@ State manager fails or returns invalid state.
 
 ## Conclusion
 
-All six prompts working together create a complete hybrid chat system:
+All seven prompts working together create a complete hybrid chat system with guided UX:
 
 1. **State Manager** - Remembers context across conversation
 2. **Intent API** - Updates state directly without LLM
@@ -504,8 +512,9 @@ All six prompts working together create a complete hybrid chat system:
 4. **LLM Prevention** - Never asks questions, only analyzes
 5. **UI Wiring** - Sends structured intents from buttons
 6. **Free-Text Compatibility** - Exploratory queries coexist with intents
+7. **Disabled Clarifications** - Guided UX prevents duplicate mutations
 
-Result: Fast, cheap, predictable chat experience with perfect separation of concerns. Users can type exploratory questions (→ LLM processes) or click clarification buttons (→ state updates). Both modes work seamlessly together.
+Result: Fast, cheap, predictable chat experience with perfect separation of concerns and professional UX. Users can type exploratory questions (→ LLM processes) or click clarification buttons (→ state updates). Both modes work seamlessly together. Answered clarifications are visually disabled, creating a guided, linear experience with no duplicate actions.
 
 ---
 

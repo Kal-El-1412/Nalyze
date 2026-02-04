@@ -10,6 +10,7 @@ interface Message {
   content: string;
   timestamp: string;
   pinned?: boolean;
+  answered?: boolean;
   clarificationData?: {
     question: string;
     choices: string[];
@@ -239,31 +240,53 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
     if (message.type === 'clarification') {
       const saveAsDefault = saveAsDefaultMap[message.id] || false;
       const canSaveDefault = !!datasetName && !!inferDefaultKeyFromQuestion(message.content);
+      const isAnswered = message.answered || false;
 
       return (
         <div key={message.id} className="flex gap-3 justify-start">
-          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+            isAnswered
+              ? 'bg-slate-300'
+              : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+          }`}>
             <Bot className="w-5 h-5 text-white" />
           </div>
-          <div className="max-w-2xl rounded-2xl px-4 py-3 bg-slate-100 text-slate-900">
-            <p className="text-sm leading-relaxed mb-3">{message.content}</p>
+          <div className={`max-w-2xl rounded-2xl px-4 py-3 ${
+            isAnswered
+              ? 'bg-slate-50 text-slate-600'
+              : 'bg-slate-100 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm leading-relaxed flex-1">{message.content}</p>
+              {isAnswered && (
+                <span className="ml-3 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                  <Check className="w-3.5 h-3.5" />
+                  Answered
+                </span>
+              )}
+            </div>
             <div className="space-y-2">
               {message.clarificationData?.choices.map((choice, idx) => (
                 <button
                   key={idx}
-                  onClick={() => handleClarificationChoice(message, choice)}
-                  className="block w-full text-left px-4 py-2 bg-white border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-sm font-medium"
+                  onClick={() => !isAnswered && handleClarificationChoice(message, choice)}
+                  disabled={isAnswered}
+                  className={`block w-full text-left px-4 py-2 border rounded-lg transition-all text-sm font-medium ${
+                    isAnswered
+                      ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-white border-slate-200 hover:border-emerald-500 hover:bg-emerald-50'
+                  }`}
                 >
                   {choice}
                 </button>
               ))}
-              {message.clarificationData?.allowFreeText && (
+              {message.clarificationData?.allowFreeText && !isAnswered && (
                 <div className="pt-2 border-t border-slate-200">
                   <p className="text-xs text-slate-500 mb-2">Or type your own response</p>
                 </div>
               )}
             </div>
-            {canSaveDefault && (
+            {canSaveDefault && !isAnswered && (
               <div className="mt-3 pt-3 border-t border-slate-200">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <button

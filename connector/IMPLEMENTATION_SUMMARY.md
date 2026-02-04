@@ -1,8 +1,8 @@
 # Implementation Summary
 
-## Six-Prompt Enhancement Complete
+## Seven-Prompt Enhancement Complete
 
-This document summarizes the six-part enhancement to the `/chat` endpoint.
+This document summarizes the seven-part enhancement to the `/chat` endpoint and frontend UX.
 
 ---
 
@@ -461,6 +461,76 @@ await sendChatMessage({
 
 ---
 
+## Prompt 7: Disable Clarification Buttons Once Answered ✅
+
+### Objective
+Improve UX by disabling clarification cards once answered, preventing re-clicking old buttons and creating a guided experience.
+
+### Implementation
+
+**1. Added `answered` property to Message interface:**
+```typescript
+interface Message {
+  // ... existing properties
+  answered?: boolean;  // New
+}
+```
+
+**2. Mark clarifications as answered:**
+```typescript
+} else if (response.type === 'intent_acknowledged') {
+  // Find and mark the corresponding clarification as answered
+  setMessages(prev => {
+    const lastClarificationIndex = [...prev].reverse().findIndex(
+      m => m.type === 'clarification' &&
+           m.clarificationData?.intent === response.intent &&
+           !m.answered
+    );
+    // Mark as answered: true
+  });
+}
+```
+
+**3. Update UI for answered state:**
+```typescript
+const isAnswered = message.answered || false;
+
+// Grey avatar when answered
+<div className={isAnswered ? 'bg-slate-300' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}>
+
+// Disabled buttons
+<button
+  disabled={isAnswered}
+  className={isAnswered ? 'cursor-not-allowed bg-slate-100 text-slate-400' : '...'}
+>
+
+// Show "Answered" badge
+{isAnswered && (
+  <span className="bg-emerald-100 text-emerald-700">
+    <Check /> Answered
+  </span>
+)}
+```
+
+### Visual Changes
+
+| Element | Before | After |
+|---------|--------|-------|
+| Bot Avatar | Green gradient | Grey |
+| Card | Dark text | Light text |
+| Buttons | Active, white | Disabled, grey |
+| Badge | None | "✓ Answered" |
+| Save as Default | Visible | Hidden |
+
+### Benefits
+- Guided, linear experience
+- Clear visual progress
+- No duplicate state mutations (buttons disabled)
+- Professional UX with badges
+- Maintains conversation history
+
+---
+
 ## Next Steps
 
 1. ✅ State manager implemented
@@ -469,8 +539,9 @@ await sendChatMessage({
 4. ✅ LLM clarifications disabled
 5. ✅ Frontend wired to send intents
 6. ✅ Free-text compatibility verified
-7. 🔲 Add more optional intents (metric, dimension, filter)
-8. 🔲 Persist state to database (optional upgrade from in-memory)
+7. ✅ Clarification buttons disabled once answered
+8. 🔲 Add more optional intents (metric, dimension, filter)
+9. 🔲 Persist state to database (optional upgrade from in-memory)
 
 ---
 
@@ -508,12 +579,13 @@ python test_llm_no_clarification.py     # 6/6 tests ✓
 
 ## Summary
 
-Six prompts, six capabilities:
+Seven prompts, seven capabilities:
 1. **State persistence** - Remember context across conversation
 2. **Intent-based updates** - Direct state control without LLM
 3. **Deterministic clarifications** - Required fields enforced upfront
 4. **LLM clarification prevention** - All questions from backend, never from LLM
 5. **UI intent wiring** - Clarification buttons send structured intents, not text
 6. **Free-text compatibility** - Exploratory chat coexists with deterministic intents
+7. **Disabled answered clarifications** - Guided UX prevents duplicate mutations
 
-Result: Complete hybrid chat system. Users can type exploratory questions (→ LLM) or click clarification buttons (→ state updates). Both modes coexist seamlessly. No loops, no repeated questions, backward compatible. Faster, cheaper, more predictable with perfect separation of concerns.
+Result: Complete hybrid chat system with guided UX. Users can type exploratory questions (→ LLM) or click clarification buttons (→ state updates). Both modes coexist seamlessly. Answered clarifications visually disabled, preventing re-clicks. No loops, no repeated questions, no duplicate mutations. Faster, cheaper, more predictable with perfect separation of concerns and professional UX.

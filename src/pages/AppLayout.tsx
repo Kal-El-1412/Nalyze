@@ -44,6 +44,7 @@ interface Message {
   content: string;
   timestamp: string;
   pinned?: boolean;
+  answered?: boolean;
   clarificationData?: {
     question: string;
     choices: string[];
@@ -612,6 +613,26 @@ export default function AppLayout() {
       // Intent was acknowledged, no message needed in chat
       // The state has been updated on the backend
       console.log(`Intent ${response.intent} acknowledged with value:`, response.value);
+
+      // Mark the corresponding clarification message as answered
+      setMessages(prev => {
+        // Find the last unanswered clarification with matching intent
+        const lastClarificationIndex = [...prev].reverse().findIndex(
+          m => m.type === 'clarification' &&
+               m.clarificationData?.intent === response.intent &&
+               !m.answered
+        );
+
+        if (lastClarificationIndex === -1) return prev;
+
+        // Convert back to original index
+        const actualIndex = prev.length - 1 - lastClarificationIndex;
+
+        // Mark as answered
+        return prev.map((msg, idx) =>
+          idx === actualIndex ? { ...msg, answered: true } : msg
+        );
+      });
     } else if (response.type === 'run_queries') {
       const queriesMessageId = Date.now().toString();
       const queriesMessage: Message = {
