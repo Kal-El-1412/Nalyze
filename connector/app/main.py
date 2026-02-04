@@ -48,6 +48,14 @@ VERSION = "0.1.0"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting CloakSheets Connector v{VERSION}")
+    logger.info("=" * 70)
+    logger.info(f"AI_MODE: {'ON' if config.ai_mode else 'OFF'}")
+    if config.ai_mode:
+        if config.openai_api_key:
+            logger.info("OpenAI API Key: Configured ✓")
+        else:
+            logger.warning("OpenAI API Key: NOT CONFIGURED - AI features will not work")
+    logger.info("=" * 70)
     yield
     logger.info("Shutting down CloakSheets Connector")
 

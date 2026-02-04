@@ -22,8 +22,14 @@ class Config:
         self.rate_limit_requests_per_minute = 60
 
         self._supabase_client: Client | None = None
+
+        # AI Configuration
+        self.ai_mode = os.getenv("AI_MODE", "off").lower() in ["on", "true", "1", "yes"]
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+
         self._init_supabase()
         self._load_config()
+        self._validate_ai_config()
 
     def _init_supabase(self):
         supabase_url = os.getenv("VITE_SUPABASE_URL")
@@ -41,6 +47,34 @@ class Config:
     @property
     def supabase(self) -> Client | None:
         return self._supabase_client
+
+    def _validate_ai_config(self):
+        """Validate AI configuration and log status"""
+        if self.ai_mode:
+            if self.openai_api_key:
+                logger.info("AI_MODE: ON (OpenAI API key configured)")
+            else:
+                logger.warning("AI_MODE: ON but OPENAI_API_KEY not configured")
+                logger.warning("AI features will return errors until OPENAI_API_KEY is set")
+        else:
+            logger.info("AI_MODE: OFF")
+
+    def validate_ai_mode_for_request(self) -> tuple[bool, str | None]:
+        """
+        Validate that AI mode is properly configured for processing requests.
+
+        Returns:
+            tuple: (is_valid, error_message)
+                - (True, None) if AI is ready
+                - (False, error_msg) if AI is not available
+        """
+        if not self.ai_mode:
+            return False, "AI mode is disabled. Set AI_MODE=on to enable AI features."
+
+        if not self.openai_api_key:
+            return False, "AI mode enabled but OPENAI_API_KEY not configured. Please set OPENAI_API_KEY environment variable."
+
+        return True, None
 
     def _load_config(self):
         self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -83,7 +117,9 @@ class Config:
             "queryTimeoutSec": self.query_timeout_sec,
             "xlsxMaxSizeMb": self.xlsx_max_size_mb,
             "rateLimitRequestsPerMinute": self.rate_limit_requests_per_minute,
-            "configPath": str(self.config_path)
+            "configPath": str(self.config_path),
+            "aiMode": "on" if self.ai_mode else "off",
+            "openaiApiKeyConfigured": bool(self.openai_api_key)
         }
 
     def reload(self):

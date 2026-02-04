@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Union, Dict, Any
 from openai import OpenAI
+from app.config import config
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
 from app.sql_validator import sql_validator
@@ -141,9 +142,10 @@ Remember: You are helping users understand their data safely and privately. Alwa
 
 class ChatOrchestrator:
     def __init__(self):
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.ai_mode = config.ai_mode
+        self.openai_api_key = config.openai_api_key
         self.client = None
-        if self.openai_api_key:
+        if self.ai_mode and self.openai_api_key:
             self.client = OpenAI(api_key=self.openai_api_key)
 
     async def process(
@@ -175,10 +177,12 @@ class ChatOrchestrator:
             else:
                 return await self._generate_sql_plan(request, catalog, context)
 
-        if not self.openai_api_key or not self.client:
-            logger.error("OPENAI_API_KEY not configured")
+        # Validate AI mode is properly configured
+        is_valid, error_message = config.validate_ai_mode_for_request()
+        if not is_valid:
+            logger.error(f"AI validation failed: {error_message}")
             return NeedsClarificationResponse(
-                question="OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.",
+                question=error_message,
                 choices=["Contact administrator"]
             )
 
