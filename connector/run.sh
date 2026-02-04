@@ -17,4 +17,4 @@ fi
 pip install -r requirements.txt
 
 echo "Starting server on http://localhost:7337"
-uvicorn app.main:app --host 0.0.0.0 --port 7337 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 7337

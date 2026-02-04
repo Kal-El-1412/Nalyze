@@ -715,11 +715,13 @@ curl -X POST http://localhost:8000/chat \
 
 ## Development
 
-To run in development mode with auto-reload:
+To run the connector in stable mode (recommended):
 
 ```bash
-uvicorn app.main:app --reload --port 7337
+uvicorn app.main:app --host 0.0.0.0 --port 7337
 ```
+
+**Note:** Auto-reload (`--reload` flag) can cause "Network Error" issues when the UI is actively communicating with the connector. For stable operation, run without the reload flag.
 
 ### Testing Chat Endpoint (Middleware Fix Verification)
 
