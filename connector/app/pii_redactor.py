@@ -36,21 +36,27 @@ class PIIRedactor:
         ]
 
         if "basicStats" in redacted_catalog_dict and redacted_catalog_dict["basicStats"]:
+            # Remove stats for PII columns entirely - don't send any PII statistics to LLM
             redacted_catalog_dict["basicStats"] = {
-                pii_map.get(col_name, col_name): stats
+                col_name: stats
                 for col_name, stats in redacted_catalog_dict["basicStats"].items()
+                if col_name not in pii_map  # Exclude PII columns
             }
 
         if "detectedDateColumns" in redacted_catalog_dict and redacted_catalog_dict["detectedDateColumns"]:
+            # Exclude PII columns from detected date columns
             redacted_catalog_dict["detectedDateColumns"] = [
-                pii_map.get(col_name, col_name)
+                col_name
                 for col_name in redacted_catalog_dict["detectedDateColumns"]
+                if col_name not in pii_map
             ]
 
         if "detectedNumericColumns" in redacted_catalog_dict and redacted_catalog_dict["detectedNumericColumns"]:
+            # Exclude PII columns from detected numeric columns
             redacted_catalog_dict["detectedNumericColumns"] = [
-                pii_map.get(col_name, col_name)
+                col_name
                 for col_name in redacted_catalog_dict["detectedNumericColumns"]
+                if col_name not in pii_map
             ]
 
         redacted_catalog_dict["piiColumns"] = []

@@ -85,11 +85,22 @@ SYSTEM_PROMPT = """You are a privacy-first data analysis assistant that helps us
 - You must NEVER request or expect to see individual row details
 - All queries must aggregate, count, or summarize data
 - Treat all data as potentially sensitive
-- **PII PROTECTION**: When privacy mode is enabled, PII columns are redacted:
+- **PII PROTECTION (Privacy Mode)**: When privacy mode is enabled, PII columns are redacted:
   - PII column names are replaced with placeholders (PII_EMAIL_1, PII_PHONE_1, PII_NAME_1, etc.)
   - You should NOT reference or query these redacted columns
+  - You will NEVER see PII values - only aggregated statistics
   - Focus on non-PII columns for analysis
   - If user asks about personal data, explain that privacy mode prevents access to PII
+
+## Safe Mode Rules (MANDATORY WHEN ENABLED)
+When Safe Mode is ON, you MUST follow these additional rules:
+- **ONLY AGGREGATED QUERIES**: Every query must use aggregate functions (COUNT, SUM, AVG, MIN, MAX) or GROUP BY
+- **NO RAW ROWS**: You cannot generate queries that return individual rows like "SELECT * FROM data LIMIT 10"
+- **AGGREGATION REQUIRED**: Even simple queries must aggregate, e.g., "SELECT COUNT(*) FROM data" instead of "SELECT * FROM data"
+- **GROUP BY COUNTS**: For category analysis, use "SELECT category, COUNT(*) FROM data GROUP BY category"
+- **Statistical ONLY**: Focus on statistics, counts, averages, sums, minimums, and maximums
+- Safe Mode protects against accidental exposure of individual records
+- If user asks for raw data when Safe Mode is ON, explain that only aggregated results are available
 
 ## SQL Generation Rules (MANDATORY)
 1. ALWAYS include LIMIT clause (max 10000 rows)
@@ -858,7 +869,7 @@ class ChatOrchestrator:
             logger.error(f"Failed to parse OpenAI response: {e}")
             raise ValueError("Invalid response format from AI")
 
-        return self._parse_response(response_data, safe_mode)
+        return self._parse_response(response_data, safe_mode, privacy_mode)
 
     async def _extract_intent_with_openai(
         self, request: ChatOrchestratorRequest, catalog: Any
@@ -922,6 +933,21 @@ class ChatOrchestrator:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
         safe_mode = request.safeMode if request.safeMode is not None else False
+        privacy_mode = request.privacyMode if request.privacyMode is not None else True
+
+        # Add Safe Mode notification if enabled
+        if safe_mode:
+            messages.append({
+                "role": "system",
+                "content": "🔒 SAFE MODE IS ON: You MUST generate ONLY aggregated queries using COUNT, SUM, AVG, MIN, MAX, or GROUP BY. Queries returning individual rows will be rejected."
+            })
+
+        # Add Privacy Mode notification if enabled
+        if privacy_mode:
+            messages.append({
+                "role": "system",
+                "content": "🔐 PRIVACY MODE IS ON: PII columns have been redacted. Focus on non-PII columns. You will never see PII values."
+            })
 
         # Add conversation state context
         state = state_manager.get_state(request.conversationId)
@@ -1047,7 +1073,7 @@ class ChatOrchestrator:
         return "\n".join(lines)
 
     def _parse_response(
-        self, response_data: Dict[str, Any], safe_mode: bool = False
+        self, response_data: Dict[str, Any], safe_mode: bool = False, privacy_mode: bool = True
     ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
         response_type = response_data.get("type")
 
@@ -1081,7 +1107,10 @@ class ChatOrchestrator:
                 for q in queries
             ]
 
-            audit_shared = ["schema", "aggregates_only", "PII_redacted"]
+            # Build audit trail based on actual modes
+            audit_shared = ["schema", "aggregates_only"]
+            if privacy_mode:
+                audit_shared.append("PII_redacted")
             if safe_mode:
                 audit_shared.append("safe_mode_no_raw_rows")
 
@@ -1103,7 +1132,10 @@ class ChatOrchestrator:
                     for t in response_data["tables"]
                 ]
 
-            audit_shared = ["schema", "aggregates_only", "PII_redacted"]
+            # Build audit trail based on actual modes
+            audit_shared = ["schema", "aggregates_only"]
+            if privacy_mode:
+                audit_shared.append("PII_redacted")
             if safe_mode:
                 audit_shared.append("safe_mode_no_raw_rows")
 
