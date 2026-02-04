@@ -160,6 +160,25 @@ export interface DatasetCatalogResponse {
   tables: DatasetTable[];
 }
 
+export interface Report {
+  id: string;
+  dataset_id: string;
+  conversation_id: string;
+  question: string;
+  analysis_type: string;
+  time_period: string;
+  summary_markdown: string;
+  tables: Array<{
+    name: string;
+    columns: string[];
+    rows: any[][];
+  }>;
+  audit_log: string[];
+  created_at: string;
+  privacy_mode: boolean;
+  safe_mode: boolean;
+}
+
 export interface ApiError {
   status: number;
   statusText: string;
@@ -431,6 +450,50 @@ class ConnectorAPI {
     } catch (error) {
       console.error('Error fetching jobs:', error);
       return [];
+    }
+  }
+
+  async getReports(datasetId?: string): Promise<Report[]> {
+    try {
+      const url = datasetId
+        ? `${this.baseUrl}/reports?dataset_id=${datasetId}`
+        : `${this.baseUrl}/reports`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      return [];
+    }
+  }
+
+  async getReport(reportId: string): Promise<Report | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/reports/${reportId}`, {
+        method: 'GET',
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching report:', error);
+      return null;
     }
   }
 

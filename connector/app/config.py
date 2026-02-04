@@ -1,9 +1,14 @@
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Any
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class Config:
@@ -16,7 +21,26 @@ class Config:
         self.xlsx_max_size_mb = 200
         self.rate_limit_requests_per_minute = 60
 
+        self._supabase_client: Client | None = None
+        self._init_supabase()
         self._load_config()
+
+    def _init_supabase(self):
+        supabase_url = os.getenv("VITE_SUPABASE_URL")
+        supabase_key = os.getenv("VITE_SUPABASE_ANON_KEY")
+
+        if supabase_url and supabase_key:
+            try:
+                self._supabase_client = create_client(supabase_url, supabase_key)
+                logger.info("Supabase client initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Supabase client: {e}")
+        else:
+            logger.warning("Supabase credentials not found in environment")
+
+    @property
+    def supabase(self) -> Client | None:
+        return self._supabase_client
 
     def _load_config(self):
         self.config_dir.mkdir(parents=True, exist_ok=True)

@@ -246,3 +246,18 @@ class PreviewResponse(BaseModel):
 class PIIInfoResponse(BaseModel):
     datasetId: str
     piiColumns: List[PIIColumnInfo]
+
+
+class Report(BaseModel):
+    id: str
+    dataset_id: str
+    conversation_id: str
+    question: str
+    analysis_type: str
+    time_period: str
+    summary_markdown: str
+    tables: List[Dict[str, Any]]
+    audit_log: List[str]
+    created_at: str
+    privacy_mode: bool
+    safe_mode: bool

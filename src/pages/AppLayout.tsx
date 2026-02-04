@@ -11,7 +11,7 @@ import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
 import Toast from '../components/Toast';
-import { connectorApi, Dataset, ChatResponse, ApiError, DatasetCatalog } from '../services/connectorApi';
+import { connectorApi, Dataset, ChatResponse, ApiError, DatasetCatalog, Report } from '../services/connectorApi';
 import { generateHTMLReport, generateJSONBundle, downloadHTMLReport, downloadJSONBundle, downloadAsZIP, extractSummaryText, copyToClipboard } from '../utils/reportGenerator';
 import { diagnostics } from '../services/diagnostics';
 import { getDatasetDefaults } from '../utils/datasetDefaults';
@@ -37,20 +37,6 @@ interface Message {
     intent?: string;
   };
   queriesData?: Array<{ name: string; sql: string }>;
-}
-
-interface Report {
-  id: string;
-  datasetId?: string;
-  datasetName: string;
-  timestamp: string;
-  conversationId: string;
-  htmlContent: string;
-  jsonContent?: string;
-  summary?: string;
-  messages?: any[];
-  tables?: any[];
-  auditLog?: string[];
 }
 
 export default function AppLayout() {
@@ -164,16 +150,14 @@ export default function AppLayout() {
     }
   };
 
-  const loadReports = () => {
-    const savedReports = localStorage.getItem('reports');
-    if (savedReports) {
-      setReports(JSON.parse(savedReports));
+  const loadReports = async () => {
+    try {
+      const apiReports = await connectorApi.getReports();
+      setReports(apiReports);
+    } catch (error) {
+      console.error('Error loading reports:', error);
+      setReports([]);
     }
-  };
-
-  const saveReportsToStorage = (reportsToSave: Report[]) => {
-    localStorage.setItem('reports', JSON.stringify(reportsToSave));
-    setReports(reportsToSave);
   };
 
   const checkConnectorHealth = async () => {
@@ -820,11 +804,7 @@ export default function AppLayout() {
           {activeSection === 'reports' && (
             <ReportsPanel
               reports={reports}
-              onDownloadReport={handleDownloadReport}
-              onDownloadJSON={handleDownloadJSONReport}
-              onDownloadZIP={handleDownloadZIPReport}
-              onCopySummary={handleCopyReportSummary}
-              onDeleteReport={handleDeleteReport}
+              datasets={datasets}
             />
           )}
           {activeSection === 'diagnostics' && (

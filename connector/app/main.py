@@ -25,7 +25,8 @@ from app.models import (
     NeedsClarificationResponse,
     RunQueriesResponse,
     FinalAnswerResponse,
-    IntentAcknowledgmentResponse
+    IntentAcknowledgmentResponse,
+    Report
 )
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
@@ -208,6 +209,27 @@ async def list_jobs():
     logger.debug("Listing all jobs")
     jobs = await storage.list_jobs()
     return jobs
+
+
+@app.get("/reports", response_model=List[Report])
+async def list_reports(dataset_id: str = None):
+    logger.debug(f"Listing reports for dataset: {dataset_id or 'all'}")
+    reports = await storage.list_reports(dataset_id)
+    return reports
+
+
+@app.get("/reports/{report_id}", response_model=Report)
+async def get_report(report_id: str):
+    logger.debug(f"Fetching report: {report_id}")
+    report = await storage.get_report(report_id)
+
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Report {report_id} not found"
+        )
+
+    return report
 
 
 @app.post("/datasets/{dataset_id}/ingest", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -507,6 +529,10 @@ async def handle_intent(request: ChatOrchestratorRequest):
         else:
             # All required fields present (shouldn't reach here)
             response = await chat_orchestrator.process(request)
+
+            if isinstance(response, FinalAnswerResponse):
+                await save_report_from_response(request, response, context)
+
             return response
 
 
@@ -537,7 +563,44 @@ async def handle_message(request: ChatOrchestratorRequest):
 
     logger.info(f"All required fields present, calling analysis pipeline for conversation {request.conversationId}")
     response = await chat_orchestrator.process(request)
+
+    if isinstance(response, FinalAnswerResponse):
+        await save_report_from_response(request, response, context)
+
     return response
+
+
+async def save_report_from_response(request: ChatOrchestratorRequest, response: FinalAnswerResponse, context: dict):
+    try:
+        tables = []
+        if response.tables:
+            tables = [
+                {
+                    "name": table.name,
+                    "columns": table.columns,
+                    "rows": table.rows
+                }
+                for table in response.tables
+            ]
+
+        audit_log = response.audit.sharedWithAI if response.audit else []
+
+        await storage.create_report(
+            dataset_id=request.datasetId,
+            conversation_id=request.conversationId,
+            question=request.message or "",
+            analysis_type=context.get("analysis_type", ""),
+            time_period=context.get("time_period", ""),
+            summary_markdown=response.message,
+            tables=tables,
+            audit_log=audit_log,
+            privacy_mode=request.privacyMode if request.privacyMode is not None else True,
+            safe_mode=request.safeMode if request.safeMode is not None else False
+        )
+
+        logger.info(f"Report saved for conversation {request.conversationId}")
+    except Exception as e:
+        logger.error(f"Failed to save report: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

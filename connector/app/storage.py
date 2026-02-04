@@ -182,5 +182,85 @@ class StorageManager:
         jobs.sort(key=lambda x: x.get("startedAt") or x.get("jobId"), reverse=True)
         return jobs
 
+    async def create_report(
+        self,
+        dataset_id: str,
+        conversation_id: str,
+        question: str,
+        analysis_type: str,
+        time_period: str,
+        summary_markdown: str,
+        tables: List[Dict[str, Any]],
+        audit_log: List[str],
+        privacy_mode: bool,
+        safe_mode: bool
+    ) -> Dict[str, Any]:
+        from app.config import config
+
+        if not config.supabase:
+            logger.warning("Supabase not available, report not saved")
+            return {}
+
+        try:
+            report_data = {
+                "dataset_id": dataset_id,
+                "conversation_id": conversation_id,
+                "question": question,
+                "analysis_type": analysis_type,
+                "time_period": time_period,
+                "summary_markdown": summary_markdown,
+                "tables": tables,
+                "audit_log": audit_log,
+                "privacy_mode": privacy_mode,
+                "safe_mode": safe_mode
+            }
+
+            result = config.supabase.table("reports").insert(report_data).execute()
+
+            if result.data and len(result.data) > 0:
+                logger.info(f"Report created: {result.data[0]['id']}")
+                return result.data[0]
+            else:
+                logger.error("Failed to create report: No data returned")
+                return {}
+
+        except Exception as e:
+            logger.error(f"Error creating report: {e}")
+            return {}
+
+    async def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
+        from app.config import config
+
+        if not config.supabase:
+            logger.warning("Supabase not available")
+            return None
+
+        try:
+            result = config.supabase.table("reports").select("*").eq("id", report_id).maybeSingle().execute()
+            return result.data if result.data else None
+        except Exception as e:
+            logger.error(f"Error fetching report {report_id}: {e}")
+            return None
+
+    async def list_reports(self, dataset_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        from app.config import config
+
+        if not config.supabase:
+            logger.warning("Supabase not available")
+            return []
+
+        try:
+            query = config.supabase.table("reports").select("*")
+
+            if dataset_id:
+                query = query.eq("dataset_id", dataset_id)
+
+            result = query.order("created_at", desc=True).execute()
+
+            return result.data if result.data else []
+        except Exception as e:
+            logger.error(f"Error listing reports: {e}")
+            return []
+
 
 storage = StorageManager()
