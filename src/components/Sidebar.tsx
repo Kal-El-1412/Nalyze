@@ -1,17 +1,14 @@
 import { Database, Briefcase, Settings, Shield, FileText, Activity } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 interface SidebarProps {
-  activeSection: 'datasets' | 'jobs' | 'reports' | 'diagnostics' | 'settings';
-  onSectionChange: (section: 'datasets' | 'jobs' | 'reports' | 'diagnostics' | 'settings') => void;
+  activeSection: 'datasets' | 'jobs' | 'reports' | 'diagnostics';
+  onSectionChange: (section: 'datasets' | 'jobs' | 'reports' | 'diagnostics') => void;
   reportCount?: number;
   errorCount?: number;
 }
 
 export default function Sidebar({ activeSection, onSectionChange, reportCount = 0, errorCount = 0 }: SidebarProps) {
-  const location = useLocation();
-  const isApp = location.pathname === '/app';
-
   return (
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen">
       <div className="p-6 border-b border-slate-200">
@@ -91,23 +88,13 @@ export default function Sidebar({ activeSection, onSectionChange, reportCount = 
       </nav>
 
       <div className="p-4 border-t border-slate-200">
-        {isApp ? (
-          <button
-            onClick={() => onSectionChange('settings')}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <Settings className="w-5 h-5" />
-            <span>Settings</span>
-          </button>
-        ) : (
-          <Link
-            to="/settings"
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <Settings className="w-5 h-5" />
-            <span>Settings</span>
-          </Link>
-        )}
+        <Link
+          to="/settings"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <Settings className="w-5 h-5" />
+          <span>Settings</span>
+        </Link>
       </div>
     </div>
   );

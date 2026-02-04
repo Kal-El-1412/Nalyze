@@ -69,7 +69,7 @@ interface Report {
 }
 
 export default function AppLayout() {
-  const [activeSection, setActiveSection] = useState<'datasets' | 'jobs' | 'reports' | 'diagnostics' | 'settings'>('datasets');
+  const [activeSection, setActiveSection] = useState<'datasets' | 'jobs' | 'reports' | 'diagnostics'>('datasets');
   const [datasets, setDatasets] = useState<LocalDataset[]>([]);
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<DatasetCatalog | null>(null);
