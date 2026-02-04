@@ -87,13 +87,17 @@ export interface RunQueriesResponse {
     name: string;
     sql: string;
   }>;
+  explanation?: string;
+  audit?: {
+    sharedWithAI: string[];
+  };
 }
 
 export interface FinalAnswerResponse {
   type: 'final_answer';
-  summaryMarkdown: string;
-  tables: Array<{
-    name: string;
+  message: string;
+  tables?: Array<{
+    title: string;
     columns: string[];
     rows: any[][];
   }>;
@@ -488,10 +492,10 @@ class ConnectorAPI {
     if (hasResultsContext) {
       return {
         type: 'final_answer',
-        summaryMarkdown: '## Analysis Complete\n\nBased on the query results, here are the key findings:\n\n- Dataset contains diverse data patterns\n- Statistical analysis shows normal distribution\n- No significant anomalies detected in the processed subset',
+        message: '## Analysis Complete\n\nBased on the query results, here are the key findings:\n\n- Dataset contains diverse data patterns\n- Statistical analysis shows normal distribution\n- No significant anomalies detected in the processed subset',
         tables: [
           {
-            name: 'Summary Statistics',
+            title: 'Summary Statistics',
             columns: ['Metric', 'Value'],
             rows: [
               ['Total Records', '1,234'],

@@ -3,6 +3,7 @@ import { FileText, Table, Shield, Download, Copy, CheckCircle } from 'lucide-rea
 import { TableSkeleton } from './LoadingSkeleton';
 
 interface TableData {
+  title?: string;
   name?: string;
   columns?: string[];
   rows?: any[][];
@@ -98,10 +99,12 @@ export default function ResultsPanel({
   const renderNewFormatTable = (table: TableData, index: number) => {
     if (!table.columns || !table.rows) return null;
 
+    const tableTitle = table.title || table.name;
+
     return (
       <div key={index} className="mb-6 last:mb-0">
-        {table.name && (
-          <h3 className="text-lg font-semibold text-slate-900 mb-3">{table.name}</h3>
+        {tableTitle && (
+          <h3 className="text-lg font-semibold text-slate-900 mb-3">{tableTitle}</h3>
         )}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full border-collapse">

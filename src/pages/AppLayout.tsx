@@ -638,7 +638,7 @@ export default function AppLayout() {
       const queriesMessage: Message = {
         id: queriesMessageId,
         type: 'waiting',
-        content: 'Running local queries...',
+        content: response.explanation || 'Running local queries...',
         timestamp: new Date().toLocaleTimeString(),
         queriesData: response.queries,
       };
@@ -724,14 +724,14 @@ export default function AppLayout() {
       const assistantMessage: Message = {
         id: Date.now().toString(),
         type: 'assistant',
-        content: response.summaryMarkdown,
+        content: response.message,
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages(prev => [...prev, assistantMessage]);
 
       setResultsData({
-        summary: response.summaryMarkdown,
-        tableData: response.tables,
+        summary: response.message,
+        tableData: response.tables || [],
         auditLog: [
           ...resultsData.auditLog,
           `${new Date().toLocaleTimeString()} - ✅ Analysis completed`,
