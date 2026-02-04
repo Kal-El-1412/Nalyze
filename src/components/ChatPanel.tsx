@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check } from 'lucide-react';
 import DatasetSummaryCard from './DatasetSummaryCard';
 import { DatasetCatalog } from '../services/connectorApi';
+import { saveDatasetDefault, inferDefaultKeyFromQuestion } from '../utils/datasetDefaults';
 
 interface Message {
   id: string;
@@ -151,6 +152,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
   const [input, setInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [saveAsDefaultMap, setSaveAsDefaultMap] = useState<Record<string, boolean>>({});
   const templatesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -222,8 +224,21 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleClarificationChoice = (message: Message, choice: string) => {
+    if (datasetName && saveAsDefaultMap[message.id]) {
+      const defaultKey = inferDefaultKeyFromQuestion(message.content);
+      if (defaultKey) {
+        saveDatasetDefault(datasetName, defaultKey, choice);
+      }
+    }
+    onClarificationResponse(choice);
+  };
+
   const renderMessage = (message: Message) => {
     if (message.type === 'clarification') {
+      const saveAsDefault = saveAsDefaultMap[message.id] || false;
+      const canSaveDefault = !!datasetName && !!inferDefaultKeyFromQuestion(message.content);
+
       return (
         <div key={message.id} className="flex gap-3 justify-start">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -235,8 +250,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
               {message.clarificationData?.choices.map((choice, idx) => (
                 <button
                   key={idx}
-                  onClick={() => onClarificationResponse(choice)}
-                  className="block w-full text-left px-4 py-2 bg-white border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-sm"
+                  onClick={() => handleClarificationChoice(message, choice)}
+                  className="block w-full text-left px-4 py-2 bg-white border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-sm font-medium"
                 >
                   {choice}
                 </button>
@@ -247,6 +262,25 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                 </div>
               )}
             </div>
+            {canSaveDefault && (
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <button
+                    onClick={() => setSaveAsDefaultMap(prev => ({ ...prev, [message.id]: !saveAsDefault }))}
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                      saveAsDefault
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : 'bg-white border-slate-300 group-hover:border-emerald-400'
+                    }`}
+                  >
+                    {saveAsDefault && <Check className="w-3 h-3 text-white" />}
+                  </button>
+                  <span className="text-xs text-slate-600 group-hover:text-slate-900">
+                    Use this as default for <span className="font-semibold">{datasetName}</span>
+                  </span>
+                </label>
+              </div>
+            )}
             <p className="text-xs mt-3 text-slate-500">{message.timestamp}</p>
           </div>
         </div>

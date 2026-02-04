@@ -15,6 +15,7 @@ import { connectorApi, Dataset, Job, ChatResponse, ApiError, DatasetCatalog } fr
 import { generateHTMLReport, downloadHTMLReport, copyToClipboard } from '../utils/reportGenerator';
 import { loadTelegramSettings, sendJobCompletionNotification } from '../utils/telegramNotifications';
 import { diagnostics } from '../services/diagnostics';
+import { getDatasetDefaults } from '../utils/datasetDefaults';
 
 interface LocalDataset {
   id: string;
@@ -489,10 +490,15 @@ export default function AppLayout() {
       };
       setMessages(prev => [...prev, waitingMessage]);
 
+      const dataset = datasets.find(d => d.datasetId === activeDataset);
+      const datasetName = dataset?.name || activeDataset;
+      const defaults = getDatasetDefaults(datasetName);
+
       const result = await connectorApi.sendChatMessage({
         datasetId: activeDataset,
         conversationId,
         message: content,
+        defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
       });
 
       setMessages(prev => prev.filter(m => m.id !== waitingMessage.id));
@@ -598,12 +604,17 @@ export default function AppLayout() {
         )
       );
 
+      const dataset = datasets.find(d => d.datasetId === activeDataset);
+      const datasetName = dataset?.name || activeDataset;
+      const defaults = getDatasetDefaults(datasetName);
+
       const followUpResponse = connectorStatus === 'connected'
         ? await connectorApi.sendChatMessage({
             datasetId: activeDataset,
             conversationId,
             message: 'Here are the query results.',
             resultsContext: { results: queryResults.results },
+            defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
           })
         : connectorApi.getMockChatResponse('results', true);
 

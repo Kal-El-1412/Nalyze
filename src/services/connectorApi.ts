@@ -50,6 +50,14 @@ export interface ChatRequest {
   resultsContext?: {
     results: QueryResult[];
   };
+  defaultsContext?: {
+    dateColumn?: string;
+    metricColumn?: string;
+    categoryColumn?: string;
+    segmentColumn?: string;
+    stageColumn?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 export interface ExecuteQueriesRequest {
