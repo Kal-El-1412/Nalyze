@@ -26,6 +26,8 @@ INTENT_EXTRACTION_PROMPT = """You are an intent classifier for data analysis que
 
 Your job is to extract structured information from user questions about their dataset.
 
+CRITICAL: Return ONLY valid JSON. No markdown. No code blocks. No explanations.
+
 ## Analysis Types
 Return ONE of these analysis types:
 - trend: Time-based analysis (trends over time, monthly/weekly patterns)
@@ -35,33 +37,48 @@ Return ONE of these analysis types:
 - data_quality: Data validation (missing values, nulls, duplicates)
 
 ## Required Output Format
-Return valid JSON with these fields:
+Return ONLY this JSON structure:
 {
-  "analysis_type": "trend" | "top_categories" | "outliers" | "row_count" | "data_quality",
-  "time_period": "last_week" | "last_month" | "last_quarter" | "last_year" | "this_week" | "this_month" | "this_quarter" | "this_year" | null,
-  "metric": "column_name" | null,
-  "group_by": "column_name" | null,
-  "notes": "brief explanation of intent"
+  "analysis_type": "trend|top_categories|outliers|row_count|data_quality",
+  "time_period": "last_7_days|last_30_days|last_90_days|all_time|unspecified",
+  "metric": "column_name|unspecified",
+  "group_by": "column_name|unspecified",
+  "date_column": "column_name|unspecified"
 }
+
+## Field Rules
+- If you cannot determine a field value, use "unspecified" (not null, not empty string)
+- For metric: Use the actual column name from the schema, or "unspecified"
+- For group_by: Use the actual column name from the schema, or "unspecified"
+- For date_column: Use the first detected date column from schema, or "unspecified"
+- For time_period: Map user terms to standard values:
+  - "last week", "past week" → "last_7_days"
+  - "last month", "past month", "last 30 days" → "last_30_days"
+  - "last quarter", "past quarter", "last 90 days" → "last_90_days"
+  - "all time", "everything", "entire dataset" → "all_time"
+  - If not specified → "unspecified"
 
 ## Examples
 
 Input: "What are the revenue trends over the last quarter?"
-Output: {"analysis_type": "trend", "time_period": "last_quarter", "metric": "revenue", "group_by": null, "notes": "User wants to see revenue trends for last quarter"}
+Output: {"analysis_type": "trend", "time_period": "last_90_days", "metric": "revenue", "group_by": "unspecified", "date_column": "order_date"}
 
 Input: "Show me which products sold the most"
-Output: {"analysis_type": "top_categories", "time_period": null, "metric": "sales", "group_by": "product", "notes": "User wants top products by sales"}
+Output: {"analysis_type": "top_categories", "time_period": "unspecified", "metric": "sales", "group_by": "product", "date_column": "unspecified"}
 
 Input: "Are there any unusual values in the data?"
-Output: {"analysis_type": "outliers", "time_period": null, "metric": null, "group_by": null, "notes": "User wants to detect outliers"}
+Output: {"analysis_type": "outliers", "time_period": "unspecified", "metric": "unspecified", "group_by": "unspecified", "date_column": "unspecified"}
 
 Input: "How many records do we have?"
-Output: {"analysis_type": "row_count", "time_period": null, "metric": null, "group_by": null, "notes": "User wants total row count"}
+Output: {"analysis_type": "row_count", "time_period": "unspecified", "metric": "unspecified", "group_by": "unspecified", "date_column": "unspecified"}
 
 Input: "Check if there are missing values"
-Output: {"analysis_type": "data_quality", "time_period": null, "metric": null, "group_by": null, "notes": "User wants to check data quality"}
+Output: {"analysis_type": "data_quality", "time_period": "unspecified", "metric": "unspecified", "group_by": "unspecified", "date_column": "unspecified"}
 
-Now analyze the user's question and return ONLY the JSON object.
+Input: "Show me weekly sales for the last month"
+Output: {"analysis_type": "trend", "time_period": "last_30_days", "metric": "sales", "group_by": "unspecified", "date_column": "sale_date"}
+
+CRITICAL: Return ONLY valid JSON. No markdown. No explanations. Just the JSON object.
 """
 
 SYSTEM_PROMPT = """You are a privacy-first data analysis assistant that helps users explore their datasets through natural language.
@@ -115,6 +132,8 @@ When Safe Mode is ON, you MUST follow these additional rules:
 10. If multiple numeric columns exist, analyze all relevant ones
 
 ## Response Format
+CRITICAL: Return ONLY valid JSON. No markdown. No code blocks. No explanations outside the JSON.
+
 You must respond with valid JSON matching one of these types:
 
 ### 1. run_queries
@@ -860,13 +879,20 @@ class ChatOrchestrator:
             max_tokens=2000
         )
 
-        response_text = response.choices[0].message.content
+        response_text = response.choices[0].message.content.strip()
+
+        # Remove markdown code blocks if present (shouldn't happen with updated prompt)
+        if response_text.startswith("```"):
+            logger.warning("LLM returned markdown code blocks despite instructions")
+            response_text = response_text.replace("```json", "").replace("```", "").strip()
+
         logger.info(f"OpenAI response: {response_text[:200]}...")
 
         try:
             response_data = json.loads(response_text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse OpenAI response: {e}")
+            logger.error(f"Raw response: {response_text[:500]}")
             raise ValueError("Invalid response format from AI")
 
         return self._parse_response(response_data, safe_mode, privacy_mode)
@@ -876,7 +902,15 @@ class ChatOrchestrator:
     ) -> Dict[str, Any]:
         """
         Use OpenAI to extract structured intent from ambiguous user queries.
-        Returns: {analysis_type, time_period, metric, group_by, notes}
+
+        Returns standardized JSON schema:
+        {
+          "analysis_type": "trend|top_categories|outliers|row_count|data_quality",
+          "time_period": "last_7_days|last_30_days|last_90_days|all_time|unspecified",
+          "metric": "column_name|unspecified",
+          "group_by": "column_name|unspecified",
+          "date_column": "column_name|unspecified"
+        }
         """
         logger.info(f"Extracting intent with OpenAI for: '{request.message[:50]}...'")
 
@@ -903,27 +937,45 @@ class ChatOrchestrator:
                 max_tokens=500
             )
 
-            response_text = response.choices[0].message.content
+            response_text = response.choices[0].message.content.strip()
+
+            # Remove markdown code blocks if present (shouldn't happen with updated prompt)
+            if response_text.startswith("```"):
+                logger.warning("LLM returned markdown code blocks despite instructions")
+                response_text = response_text.replace("```json", "").replace("```", "").strip()
+
             logger.info(f"OpenAI intent extraction response: {response_text}")
 
             intent_data = json.loads(response_text)
 
-            # Validate that we got required fields
-            if "analysis_type" not in intent_data:
-                raise ValueError("Missing analysis_type in intent extraction response")
+            # Validate required fields
+            required_fields = ["analysis_type", "time_period", "metric", "group_by", "date_column"]
+            missing_fields = [f for f in required_fields if f not in intent_data]
+            if missing_fields:
+                logger.warning(f"Missing fields in intent extraction: {missing_fields}. Adding defaults.")
+                for field in missing_fields:
+                    intent_data[field] = "unspecified"
 
-            # Normalize time_period if present
+            # Ensure all fields use "unspecified" instead of null/None
+            for field in required_fields:
+                if intent_data[field] is None or intent_data[field] == "":
+                    intent_data[field] = "unspecified"
+
+            # Normalize time_period to lowercase
             if intent_data.get("time_period"):
                 intent_data["time_period"] = str(intent_data["time_period"]).lower()
 
             logger.info(f"Extracted intent: analysis_type={intent_data.get('analysis_type')}, "
                        f"time_period={intent_data.get('time_period')}, "
-                       f"metric={intent_data.get('metric')}")
+                       f"metric={intent_data.get('metric')}, "
+                       f"group_by={intent_data.get('group_by')}, "
+                       f"date_column={intent_data.get('date_column')}")
 
             return intent_data
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse intent extraction response: {e}")
+            logger.error(f"Raw response: {response_text if 'response_text' in locals() else 'N/A'}")
             raise ValueError("Invalid JSON response from intent extractor")
         except Exception as e:
             logger.error(f"Intent extraction error: {e}", exc_info=True)
