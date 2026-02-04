@@ -85,6 +85,9 @@ export default function Settings() {
     localStorage.setItem('demoMode', demoMode.toString());
     saveTelegramSettings(telegram);
     connectorApi.setBaseUrl(connectorUrl);
+
+    window.dispatchEvent(new Event('privacyModeChange'));
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

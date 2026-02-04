@@ -1,5 +1,6 @@
 import { Database, Plus, Trash2, Calendar, ShieldCheck } from 'lucide-react';
 import PIIScanResults from './PIIScanResults';
+import { DatasetCatalog } from '../services/connectorApi';
 
 interface Dataset {
   id: string;
@@ -15,6 +16,8 @@ interface DatasetsPanelProps {
   onAddDataset: () => void;
   onDeleteDataset: (id: string) => void;
   isConnected?: boolean;
+  catalog?: DatasetCatalog | null;
+  privacyMode?: boolean;
 }
 
 export default function DatasetsPanel({
@@ -24,6 +27,8 @@ export default function DatasetsPanel({
   onAddDataset,
   onDeleteDataset,
   isConnected = false,
+  catalog = null,
+  privacyMode = true,
 }: DatasetsPanelProps) {
   return (
     <div className="h-full flex flex-col">
@@ -44,9 +49,9 @@ export default function DatasetsPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {activeDataset && datasets.length > 0 && (
+        {activeDataset && datasets.length > 0 && catalog && (
           <div className="mb-4">
-            <PIIScanResults />
+            <PIIScanResults catalog={catalog} privacyMode={privacyMode} />
           </div>
         )}
         {datasets.length === 0 ? (

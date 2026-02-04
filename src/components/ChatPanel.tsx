@@ -29,6 +29,7 @@ interface ChatPanelProps {
   activeDataset?: string | null;
   datasetName?: string;
   catalog?: DatasetCatalog | null;
+  privacyMode?: boolean;
 }
 
 interface AnalysisTemplate {
@@ -150,7 +151,7 @@ const suggestions = [
   { icon: BarChart3, text: 'Top categories', color: 'text-emerald-600 bg-emerald-50' },
 ];
 
-export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog, privacyMode = true }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -479,6 +480,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
               catalog={catalog}
               datasetName={datasetName}
               onViewSchema={onShowDatasetSummary}
+              privacyMode={privacyMode}
             />
           </div>
         )}

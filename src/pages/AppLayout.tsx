@@ -88,6 +88,7 @@ export default function AppLayout() {
     allowSampleRows: false,
     maskPII: true,
   });
+  const [privacyMode, setPrivacyMode] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [showDisconnectedBanner, setShowDisconnectedBanner] = useState(false);
@@ -115,6 +116,21 @@ export default function AppLayout() {
       setPrivacySettings(JSON.parse(savedPrivacy));
     }
 
+    const savedPrivacyMode = localStorage.getItem('privacyMode');
+    if (savedPrivacyMode !== null) {
+      setPrivacyMode(savedPrivacyMode === 'true');
+    }
+
+    const handleStorageChange = () => {
+      const updatedPrivacyMode = localStorage.getItem('privacyMode');
+      if (updatedPrivacyMode !== null) {
+        setPrivacyMode(updatedPrivacyMode === 'true');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('privacyModeChange', handleStorageChange);
+
     const unsubscribe = diagnostics.subscribe((events) => {
       const errors = events.filter(e => e.type === 'error').length;
       setErrorCount(errors);
@@ -130,6 +146,8 @@ export default function AppLayout() {
     return () => {
       unsubscribe();
       clearInterval(healthInterval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('privacyModeChange', handleStorageChange);
     };
   }, []);
 
@@ -864,6 +882,8 @@ export default function AppLayout() {
               onAddDataset={() => setShowConnectModal(true)}
               onDeleteDataset={handleDeleteDataset}
               isConnected={connectorStatus === 'connected'}
+              catalog={catalog}
+              privacyMode={privacyMode}
             />
           )}
           {activeSection === 'jobs' && <JobsPanel jobs={jobs} />}
@@ -979,6 +999,7 @@ export default function AppLayout() {
                 activeDataset={activeDataset}
                 datasetName={activeDataset ? datasets.find(d => d.id === activeDataset)?.name : undefined}
                 catalog={catalog}
+                privacyMode={privacyMode}
               />
             </div>
             <div className="w-full lg:w-[500px] max-h-[400px] lg:max-h-none">
