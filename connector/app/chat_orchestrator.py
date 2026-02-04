@@ -177,6 +177,25 @@ class ChatOrchestrator:
             else:
                 return await self._generate_sql_plan(request, catalog, context)
 
+        # Check if AI Assist is enabled
+        ai_assist = request.aiAssist if request.aiAssist is not None else False
+
+        if not ai_assist:
+            # AI Assist is OFF - cannot process free-text queries without OpenAI
+            logger.info("AI Assist is OFF - cannot process free-text queries")
+            return FinalAnswerResponse(
+                message="AI Assist is currently OFF. To ask questions in natural language, please enable AI Assist using the toggle next to the chat input.",
+                tables=None
+            )
+
+        # AI Assist is ON - check if OpenAI API key is configured
+        if not self.openai_api_key:
+            logger.warning("AI Assist is ON but OPENAI_API_KEY is not configured")
+            return FinalAnswerResponse(
+                message="AI Assist is ON but no API key is configured. Set OPENAI_API_KEY in .env or turn AI Assist off.",
+                tables=None
+            )
+
         # Validate AI mode is properly configured
         is_valid, error_message = config.validate_ai_mode_for_request()
         if not is_valid:

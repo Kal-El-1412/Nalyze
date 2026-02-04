@@ -444,7 +444,19 @@ async def chat(request_data: Request):
         privacy_header = request_data.headers.get("X-Privacy-Mode", "on")
         privacy_mode = privacy_header.lower() == "on"
 
+    safe_mode = body.get("safeMode")
+    if safe_mode is None:
+        safe_header = request_data.headers.get("X-Safe-Mode", "off")
+        safe_mode = safe_header.lower() == "on"
+
+    ai_assist = body.get("aiAssist")
+    if ai_assist is None:
+        ai_header = request_data.headers.get("X-AI-Assist", "off")
+        ai_assist = ai_header.lower() == "on"
+
     body["privacyMode"] = privacy_mode
+    body["safeMode"] = safe_mode
+    body["aiAssist"] = ai_assist
     request = ChatOrchestratorRequest(**body)
 
     logger.info("=" * 80)
@@ -456,6 +468,8 @@ async def chat(request_data: Request):
     logger.info(f"   message: {request.message[:50] if request.message else None}")
     logger.info(f"   hasResultsContext: {request.resultsContext is not None}")
     logger.info(f"   privacyMode: {request.privacyMode}")
+    logger.info(f"   safeMode: {request.safeMode}")
+    logger.info(f"   aiAssist: {request.aiAssist}")
     logger.info("=" * 80)
 
     try:

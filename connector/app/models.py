@@ -83,6 +83,8 @@ class ChatOrchestratorRequest(BaseModel):
     intent: Optional[str] = None
     value: Optional[Any] = None
     privacyMode: Optional[bool] = True
+    safeMode: Optional[bool] = False
+    aiAssist: Optional[bool] = False
     resultsContext: Optional[ResultsContext] = None
 
     def __init__(self, **data):
