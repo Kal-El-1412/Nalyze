@@ -30,7 +30,11 @@ class ConversationStateManager:
         with self._lock:
             if conversation_id not in self._states:
                 logger.info(f"Creating new state for conversation: {conversation_id}")
+                logger.info(f"Existing conversations: {list(self._states.keys())}")
                 self._states[conversation_id] = self._create_default_state(conversation_id)
+            else:
+                logger.debug(f"Retrieved existing state for conversation: {conversation_id}")
+                logger.debug(f"Current context: {self._states[conversation_id].get('context', {})}")
 
             return self._states[conversation_id].copy()
 

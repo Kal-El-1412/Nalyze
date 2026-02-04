@@ -438,10 +438,16 @@ async def chat(request_data: Request):
     body["privacyMode"] = privacy_mode
     request = ChatOrchestratorRequest(**body)
 
-    logger.info(
-        f"Chat request for dataset {request.datasetId}, "
-        f"conversation {request.conversationId}, privacyMode={request.privacyMode}"
-    )
+    logger.info("=" * 80)
+    logger.info(f"📨 /chat endpoint received request:")
+    logger.info(f"   conversationId: {request.conversationId}")
+    logger.info(f"   datasetId: {request.datasetId}")
+    logger.info(f"   intent: {request.intent}")
+    logger.info(f"   value: {request.value}")
+    logger.info(f"   message: {request.message[:50] if request.message else None}")
+    logger.info(f"   hasResultsContext: {request.resultsContext is not None}")
+    logger.info(f"   privacyMode: {request.privacyMode}")
+    logger.info("=" * 80)
 
     try:
         if request.intent:
@@ -541,9 +547,28 @@ async def handle_intent(request: ChatOrchestratorRequest):
 
 
 async def handle_message(request: ChatOrchestratorRequest):
+    logger.info(f"[handle_message] conversationId={request.conversationId}, hasResultsContext={request.resultsContext is not None}")
+
     state = state_manager.get_state(request.conversationId)
     context = state.get("context", {})
 
+    logger.info(f"[handle_message] Retrieved context: {context}")
+    logger.info(f"[handle_message] analysis_type present: {'analysis_type' in context}")
+    logger.info(f"[handle_message] time_period present: {'time_period' in context}")
+
+    # CRITICAL FIX: If resultsContext is present, NEVER ask for clarification
+    # The queries have already been executed, so state MUST be ready
+    # Proceed directly to orchestrator to generate final answer
+    if request.resultsContext:
+        logger.info(f"[handle_message] resultsContext present - bypassing clarification checks, proceeding to orchestrator")
+        response = await chat_orchestrator.process(request)
+
+        if isinstance(response, FinalAnswerResponse):
+            await save_report_from_response(request, response, context)
+
+        return response
+
+    # Only ask for clarification if this is a new message (no resultsContext)
     if "analysis_type" not in context:
         logger.info(f"Missing analysis_type for conversation {request.conversationId}, returning clarification")
         return NeedsClarificationResponse(
@@ -553,7 +578,8 @@ async def handle_message(request: ChatOrchestratorRequest):
         )
 
     if "time_period" not in context:
-        logger.info(f"Missing time_period for conversation {request.conversationId}, returning clarification")
+        logger.warning(f"Missing time_period for conversation {request.conversationId}, returning clarification")
+        logger.warning(f"Full state: {state}")
         return NeedsClarificationResponse(
             question="What time period would you like to analyze?",
             choices=["Last 7 days", "Last 30 days", "Last 90 days", "All time"],
