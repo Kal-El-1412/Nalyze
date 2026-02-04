@@ -1,8 +1,8 @@
 # Implementation Summary
 
-## Five-Prompt Enhancement Complete
+## Six-Prompt Enhancement Complete
 
-This document summarizes the five-part enhancement to the `/chat` endpoint.
+This document summarizes the six-part enhancement to the `/chat` endpoint.
 
 ---
 
@@ -391,6 +391,76 @@ Update chat UI so clarification buttons send structured intents instead of free-
 
 ---
 
+## Prompt 6: Free-Text Chat Compatibility ✅
+
+### Objective
+Ensure free-text chat still works for exploratory queries alongside intent-based clarifications.
+
+### Status
+✅ **Already Implemented Correctly** - No code changes needed!
+
+### How It Works
+
+**Typed messages (text input):**
+```typescript
+handleSendMessage(content)
+  → sendChatMessage({ message: content })
+  → LLM processes message
+```
+
+**Button clicks with intent:**
+```typescript
+handleClarificationResponse(choice, intent)
+  → sendChatMessage({ intent, value: choice })
+  → State updated (no LLM)
+```
+
+**Button clicks without intent:**
+```typescript
+handleClarificationResponse(choice, undefined)
+  → handleSendMessage(choice)
+  → sendChatMessage({ message: choice })
+  → LLM processes message
+```
+
+### Routing Logic
+
+| User Action | Request | Backend Handler |
+|-------------|---------|-----------------|
+| Types text + Enter | `{ message: "..." }` | LLM processes |
+| Clicks button (with intent) | `{ intent: "...", value: "..." }` | State update (no LLM) |
+| Clicks button (no intent) | `{ message: "..." }` | LLM processes |
+
+### Loop Prevention
+
+**Intent acknowledgment doesn't trigger new requests:**
+```typescript
+if (response.type === 'intent_acknowledged') {
+  console.log('Intent acknowledged');
+  // ✅ Only logs, no message created
+  // ✅ No automatic re-request
+}
+```
+
+**Follow-up is explicit:**
+```typescript
+// After acknowledgment, explicitly continue
+await sendChatMessage({
+  datasetId: activeDataset,
+  conversationId,
+  message: 'continue',  // Controlled follow-up
+});
+```
+
+### Benefits
+- Typed messages reach LLM for flexible exploration
+- Button clicks update state deterministically
+- Both modes coexist seamlessly
+- No loops or repeated requests
+- Backward compatible (unknown intents fall back to text)
+
+---
+
 ## Next Steps
 
 1. ✅ State manager implemented
@@ -398,8 +468,9 @@ Update chat UI so clarification buttons send structured intents instead of free-
 3. ✅ Deterministic clarifications added
 4. ✅ LLM clarifications disabled
 5. ✅ Frontend wired to send intents
-6. 🔲 Add more optional intents (metric, dimension, filter)
-7. 🔲 Persist state to database (optional upgrade from in-memory)
+6. ✅ Free-text compatibility verified
+7. 🔲 Add more optional intents (metric, dimension, filter)
+8. 🔲 Persist state to database (optional upgrade from in-memory)
 
 ---
 
@@ -437,11 +508,12 @@ python test_llm_no_clarification.py     # 6/6 tests ✓
 
 ## Summary
 
-Five prompts, five capabilities:
+Six prompts, six capabilities:
 1. **State persistence** - Remember context across conversation
 2. **Intent-based updates** - Direct state control without LLM
 3. **Deterministic clarifications** - Required fields enforced upfront
 4. **LLM clarification prevention** - All questions from backend, never from LLM
 5. **UI intent wiring** - Clarification buttons send structured intents, not text
+6. **Free-text compatibility** - Exploratory chat coexists with deterministic intents
 
-Result: Complete end-to-end intent-based clarification system. Frontend buttons → Backend state → LLM analysis. Faster, cheaper, more predictable with perfect separation of concerns.
+Result: Complete hybrid chat system. Users can type exploratory questions (→ LLM) or click clarification buttons (→ state updates). Both modes coexist seamlessly. No loops, no repeated questions, backward compatible. Faster, cheaper, more predictable with perfect separation of concerns.

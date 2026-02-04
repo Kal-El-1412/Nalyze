@@ -349,6 +349,14 @@ User Message: "continue"
 - [x] No `message` field in intent requests
 - [x] Automatic follow-up after acknowledgment
 
+### ✅ Prompt 6: Free-Text Compatibility
+- [x] Typed messages send `message` field
+- [x] Typed messages reach LLM
+- [x] Button clicks send `intent` field (when detected)
+- [x] Unknown intents fall back to text
+- [x] Both modes coexist seamlessly
+- [x] No loops from button clicks
+
 ---
 
 ## Network Request Trace
@@ -488,15 +496,16 @@ State manager fails or returns invalid state.
 
 ## Conclusion
 
-All five prompts working together create a complete, deterministic, intent-based clarification system:
+All six prompts working together create a complete hybrid chat system:
 
-1. **State Manager** - Remembers context
-2. **Intent API** - Updates state directly
+1. **State Manager** - Remembers context across conversation
+2. **Intent API** - Updates state directly without LLM
 3. **Backend Clarifications** - Asks deterministically
-4. **LLM Prevention** - Never asks questions
-5. **UI Wiring** - Sends structured intents
+4. **LLM Prevention** - Never asks questions, only analyzes
+5. **UI Wiring** - Sends structured intents from buttons
+6. **Free-Text Compatibility** - Exploratory queries coexist with intents
 
-Result: Fast, cheap, predictable chat experience with perfect separation between clarifications (backend) and analysis (LLM).
+Result: Fast, cheap, predictable chat experience with perfect separation of concerns. Users can type exploratory questions (→ LLM processes) or click clarification buttons (→ state updates). Both modes work seamlessly together.
 
 ---
 
