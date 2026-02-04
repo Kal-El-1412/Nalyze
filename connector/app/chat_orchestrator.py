@@ -223,8 +223,9 @@ class ChatOrchestrator:
         analysis_type = context.get("analysis_type")
         time_period = context.get("time_period")
         privacy_mode = request.privacyMode if request.privacyMode is not None else True
+        safe_mode = request.safeMode if request.safeMode is not None else False
 
-        logger.info(f"Generating SQL plan for analysis_type={analysis_type}, time_period={time_period}, privacyMode={privacy_mode}")
+        logger.info(f"Generating SQL plan for analysis_type={analysis_type}, time_period={time_period}, privacyMode={privacy_mode}, safeMode={safe_mode}")
 
         working_catalog = catalog
         audit_shared = ["schema", "aggregates_only"]
@@ -232,6 +233,9 @@ class ChatOrchestrator:
         if privacy_mode and catalog:
             working_catalog, _ = pii_redactor.redact_catalog(catalog, privacy_mode)
             audit_shared.append("PII_redacted")
+
+        if safe_mode:
+            audit_shared.append("safe_mode_no_raw_rows")
 
         queries = []
 
@@ -328,10 +332,14 @@ class ChatOrchestrator:
     ) -> FinalAnswerResponse:
         """Generate final answer from query results"""
         privacy_mode = request.privacyMode if request.privacyMode is not None else True
+        safe_mode = request.safeMode if request.safeMode is not None else False
         audit_shared = ["schema", "aggregates_only"]
 
         if privacy_mode and catalog:
             audit_shared.append("PII_redacted")
+
+        if safe_mode:
+            audit_shared.append("safe_mode_no_raw_rows")
 
         if not request.resultsContext or not request.resultsContext.results:
             return FinalAnswerResponse(
@@ -445,12 +453,13 @@ class ChatOrchestrator:
         self, request: ChatOrchestratorRequest, catalog: Any
     ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
         privacy_mode = request.privacyMode if request.privacyMode is not None else True
+        safe_mode = request.safeMode if request.safeMode is not None else False
 
         redacted_catalog, pii_map = pii_redactor.redact_catalog(catalog, privacy_mode)
 
         messages = self._build_messages(request, redacted_catalog)
 
-        logger.info(f"Calling OpenAI API with privacyMode={privacy_mode}...")
+        logger.info(f"Calling OpenAI API with privacyMode={privacy_mode}, safeMode={safe_mode}...")
         response = self.client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=messages,
@@ -468,10 +477,12 @@ class ChatOrchestrator:
             logger.error(f"Failed to parse OpenAI response: {e}")
             raise ValueError("Invalid response format from AI")
 
-        return self._parse_response(response_data)
+        return self._parse_response(response_data, safe_mode)
 
     def _build_messages(self, request: ChatOrchestratorRequest, catalog: Any) -> list:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        safe_mode = request.safeMode if request.safeMode is not None else False
 
         # Add conversation state context
         state = state_manager.get_state(request.conversationId)
@@ -490,7 +501,7 @@ class ChatOrchestrator:
         })
 
         if request.resultsContext:
-            results_summary = self._build_results_context(request.resultsContext)
+            results_summary = self._build_results_context(request.resultsContext, safe_mode)
             messages.append({
                 "role": "system",
                 "content": f"Query Results (aggregated):\n{results_summary}"
@@ -576,15 +587,18 @@ class ChatOrchestrator:
 
         return "\n".join(lines)
 
-    def _build_results_context(self, results_context: Any) -> str:
-        lines = ["Previous query results (aggregated):"]
+    def _build_results_context(self, results_context: Any, safe_mode: bool = False) -> str:
+        if safe_mode:
+            lines = ["Previous query results (Safe Mode - no raw rows):"]
+        else:
+            lines = ["Previous query results (aggregated):"]
 
         for result in results_context.results:
             lines.append(f"\n{result.name}:")
             lines.append(f"  Columns: {', '.join(result.columns)}")
             lines.append(f"  Rows returned: {len(result.rows)}")
 
-            if result.rows:
+            if result.rows and not safe_mode:
                 lines.append("  Sample data:")
                 for i, row in enumerate(result.rows[:5]):
                     lines.append(f"    {row}")
@@ -594,7 +608,7 @@ class ChatOrchestrator:
         return "\n".join(lines)
 
     def _parse_response(
-        self, response_data: Dict[str, Any]
+        self, response_data: Dict[str, Any], safe_mode: bool = False
     ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
         response_type = response_data.get("type")
 
@@ -623,10 +637,14 @@ class ChatOrchestrator:
                 for q in queries
             ]
 
+            audit_shared = ["schema", "aggregates_only", "PII_redacted"]
+            if safe_mode:
+                audit_shared.append("safe_mode_no_raw_rows")
+
             return RunQueriesResponse(
                 queries=query_objects,
                 explanation=response_data.get("explanation", "Running queries..."),
-                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only", "PII_redacted"])
+                audit=AuditInfo(sharedWithAI=audit_shared)
             )
 
         elif response_type == "final_answer":
@@ -641,10 +659,14 @@ class ChatOrchestrator:
                     for t in response_data["tables"]
                 ]
 
+            audit_shared = ["schema", "aggregates_only", "PII_redacted"]
+            if safe_mode:
+                audit_shared.append("safe_mode_no_raw_rows")
+
             return FinalAnswerResponse(
                 message=response_data.get("message", "Analysis complete."),
                 tables=tables,
-                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only", "PII_redacted"])
+                audit=AuditInfo(sharedWithAI=audit_shared)
             )
 
         else:
