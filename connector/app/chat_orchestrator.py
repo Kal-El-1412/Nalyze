@@ -137,6 +137,13 @@ class ChatOrchestrator:
                 choices=["Contact administrator"]
             )
 
+        if not request.message:
+            logger.error("Message is required for LLM processing")
+            return NeedsClarificationResponse(
+                question="Please provide a message to process.",
+                choices=["Try again"]
+            )
+
         logger.info(
             f"Processing chat request for dataset {request.datasetId}, "
             f"conversation {request.conversationId}, message: {request.message[:50]}..."

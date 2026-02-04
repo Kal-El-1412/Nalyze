@@ -24,10 +24,12 @@ from app.models import (
     ChatOrchestratorRequest,
     NeedsClarificationResponse,
     RunQueriesResponse,
-    FinalAnswerResponse
+    FinalAnswerResponse,
+    IntentAcknowledgmentResponse
 )
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
+from app.state import state_manager
 from app.query import query_executor, QueryTimeoutError
 from app.chat_orchestrator import chat_orchestrator
 from app.config import config
@@ -383,14 +385,71 @@ async def chat(request: ChatOrchestratorRequest):
     )
 
     try:
-        response = await chat_orchestrator.process(request)
-        return response
+        if request.intent:
+            return await handle_intent(request)
+        else:
+            return await handle_message(request)
     except Exception as e:
-        logger.error(f"Chat orchestrator error: {e}", exc_info=True)
+        logger.error(f"Chat processing error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Chat processing failed: {str(e)}"
         )
+
+
+async def handle_intent(request: ChatOrchestratorRequest) -> IntentAcknowledgmentResponse:
+    logger.info(f"Handling intent: {request.intent} = {request.value}")
+
+    state = state_manager.get_state(request.conversationId)
+
+    intent_field_map = {
+        "set_analysis_type": "analysis_type",
+        "set_time_period": "time_period",
+        "set_metric": "metric",
+        "set_dimension": "dimension",
+        "set_filter": "filter",
+        "set_grouping": "grouping",
+        "set_visualization": "visualization_type"
+    }
+
+    field_name = intent_field_map.get(request.intent)
+    if not field_name:
+        field_name = request.intent.replace("set_", "")
+
+    if request.intent.startswith("set_"):
+        update_data = {field_name: request.value}
+    else:
+        update_data = {request.intent: request.value}
+
+    if "context" not in state:
+        state["context"] = {}
+
+    state["context"].update(update_data)
+    state_manager.update_state(request.conversationId, context=state["context"])
+
+    updated_state = state_manager.get_state(request.conversationId)
+
+    message = f"Updated {field_name.replace('_', ' ')} to '{request.value}'"
+
+    logger.info(f"State updated for conversation {request.conversationId}: {field_name} = {request.value}")
+
+    return IntentAcknowledgmentResponse(
+        intent=request.intent,
+        value=request.value,
+        state=updated_state,
+        message=message
+    )
+
+
+async def handle_message(request: ChatOrchestratorRequest):
+    state = state_manager.get_state(request.conversationId)
+    state_manager.update_state(
+        request.conversationId,
+        message_count=state.get("message_count", 0) + 1
+    )
+
+    response = await chat_orchestrator.process(request)
+    return response
 
 
 if __name__ == "__main__":

@@ -79,8 +79,19 @@ class ResultsContext(BaseModel):
 class ChatOrchestratorRequest(BaseModel):
     datasetId: str
     conversationId: str
-    message: str
+    message: Optional[str] = None
+    intent: Optional[str] = None
+    value: Optional[Any] = None
     resultsContext: Optional[ResultsContext] = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.message and not self.intent:
+            raise ValueError("Either 'message' or 'intent' must be provided")
+        if self.message and self.intent:
+            raise ValueError("Cannot provide both 'message' and 'intent'")
+        if self.intent and self.value is None:
+            raise ValueError("'value' is required when 'intent' is provided")
 
 
 class AuditInfo(BaseModel):
@@ -119,7 +130,15 @@ class FinalAnswerResponse(BaseModel):
     audit: AuditInfo = Field(default_factory=AuditInfo)
 
 
-ChatOrchestratorResponse = Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]
+class IntentAcknowledgmentResponse(BaseModel):
+    type: Literal["intent_acknowledged"] = "intent_acknowledged"
+    intent: str
+    value: Any
+    state: Dict[str, Any]
+    message: str
+
+
+ChatOrchestratorResponse = Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse, IntentAcknowledgmentResponse]
 
 
 class Job(BaseModel):
