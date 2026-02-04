@@ -107,6 +107,19 @@ export interface DatasetCatalogResponse {
   tables: DatasetTable[];
 }
 
+export interface ApiError {
+  status: number;
+  statusText: string;
+  url: string;
+  method: string;
+  message: string;
+  raw?: string;
+}
+
+export type ApiResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: ApiError };
+
 class ConnectorAPI {
   private baseUrl: string;
   private isAvailable: boolean = false;
@@ -127,6 +140,62 @@ class ConnectorAPI {
 
   getConnectorUrl(): string {
     return this.baseUrl;
+  }
+
+  private async parseError(
+    response: Response,
+    method: string,
+    url: string
+  ): Promise<ApiError> {
+    let message = response.statusText;
+    let raw: string | undefined;
+
+    try {
+      const text = await response.text();
+      raw = text;
+
+      try {
+        const json = JSON.parse(text);
+        message = json.detail || json.error || json.message || message;
+      } catch {
+        message = text || message;
+      }
+    } catch {
+      // If reading response fails, use statusText
+    }
+
+    return {
+      status: response.status,
+      statusText: response.statusText,
+      url,
+      method,
+      message,
+      raw,
+    };
+  }
+
+  private async handleApiError(
+    error: unknown,
+    method: string,
+    url: string
+  ): Promise<ApiError> {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return {
+        status: 0,
+        statusText: 'Network Error',
+        url,
+        method,
+        message: 'Cannot connect to connector. Is it running?',
+      };
+    }
+
+    return {
+      status: 0,
+      statusText: 'Unknown Error',
+      url,
+      method,
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 
   async checkHealth(retries: number = 2): Promise<HealthResponse | null> {
@@ -162,10 +231,13 @@ class ConnectorAPI {
     return null;
   }
 
-  async registerDataset(request: RegisterDatasetRequest): Promise<RegisterDatasetResponse | null> {
+  async registerDataset(request: RegisterDatasetRequest): Promise<ApiResult<RegisterDatasetResponse>> {
+    const url = `${this.baseUrl}/datasets/register`;
+    const method = 'POST';
+
     try {
-      const response = await fetch(`${this.baseUrl}/datasets/register`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -173,35 +245,42 @@ class ConnectorAPI {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to register dataset: ${response.statusText}`);
+        const error = await this.parseError(response, method, url);
+        return { success: false, error };
       }
 
-      return await response.json();
+      const data = await response.json();
+      return { success: true, data };
     } catch (error) {
-      console.error('Error registering dataset:', error);
-      return null;
+      const apiError = await this.handleApiError(error, method, url);
+      return { success: false, error: apiError };
     }
   }
 
-  async uploadDataset(file: File, name: string): Promise<RegisterDatasetResponse | null> {
+  async uploadDataset(file: File, name: string): Promise<ApiResult<RegisterDatasetResponse>> {
+    const url = `${this.baseUrl}/datasets/upload`;
+    const method = 'POST';
+
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('name', name);
 
-      const response = await fetch(`${this.baseUrl}/datasets/upload`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to upload dataset: ${response.statusText}`);
+        const error = await this.parseError(response, method, url);
+        return { success: false, error };
       }
 
-      return await response.json();
+      const data = await response.json();
+      return { success: true, data };
     } catch (error) {
-      console.error('Error uploading dataset:', error);
-      return null;
+      const apiError = await this.handleApiError(error, method, url);
+      return { success: false, error: apiError };
     }
   }
 
@@ -222,20 +301,25 @@ class ConnectorAPI {
     }
   }
 
-  async ingestDataset(datasetId: string): Promise<IngestResponse | null> {
+  async ingestDataset(datasetId: string): Promise<ApiResult<IngestResponse>> {
+    const url = `${this.baseUrl}/datasets/${datasetId}/ingest`;
+    const method = 'POST';
+
     try {
-      const response = await fetch(`${this.baseUrl}/datasets/${datasetId}/ingest`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ingest dataset: ${response.statusText}`);
+        const error = await this.parseError(response, method, url);
+        return { success: false, error };
       }
 
-      return await response.json();
+      const data = await response.json();
+      return { success: true, data };
     } catch (error) {
-      console.error('Error ingesting dataset:', error);
-      return null;
+      const apiError = await this.handleApiError(error, method, url);
+      return { success: false, error: apiError };
     }
   }
 
@@ -256,10 +340,13 @@ class ConnectorAPI {
     }
   }
 
-  async sendChatMessage(request: ChatRequest): Promise<ChatResponse | null> {
+  async sendChatMessage(request: ChatRequest): Promise<ApiResult<ChatResponse>> {
+    const url = `${this.baseUrl}/chat`;
+    const method = 'POST';
+
     try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -267,20 +354,25 @@ class ConnectorAPI {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to send chat message: ${response.statusText}`);
+        const error = await this.parseError(response, method, url);
+        return { success: false, error };
       }
 
-      return await response.json();
+      const data = await response.json();
+      return { success: true, data };
     } catch (error) {
-      console.error('Error sending chat message:', error);
-      return null;
+      const apiError = await this.handleApiError(error, method, url);
+      return { success: false, error: apiError };
     }
   }
 
-  async executeQueries(request: ExecuteQueriesRequest): Promise<ExecuteQueriesResponse | null> {
+  async executeQueries(request: ExecuteQueriesRequest): Promise<ApiResult<ExecuteQueriesResponse>> {
+    const url = `${this.baseUrl}/queries/execute`;
+    const method = 'POST';
+
     try {
-      const response = await fetch(`${this.baseUrl}/queries/execute`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -288,13 +380,15 @@ class ConnectorAPI {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to execute queries: ${response.statusText}`);
+        const error = await this.parseError(response, method, url);
+        return { success: false, error };
       }
 
-      return await response.json();
+      const data = await response.json();
+      return { success: true, data };
     } catch (error) {
-      console.error('Error executing queries:', error);
-      return null;
+      const apiError = await this.handleApiError(error, method, url);
+      return { success: false, error: apiError };
     }
   }
 

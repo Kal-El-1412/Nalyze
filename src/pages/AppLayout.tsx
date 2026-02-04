@@ -10,7 +10,8 @@ import ConnectDataModal from '../components/ConnectDataModal';
 import DatasetSummary from '../components/DatasetSummary';
 import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
-import { connectorApi, Dataset, Job, ChatResponse } from '../services/connectorApi';
+import ErrorToast from '../components/ErrorToast';
+import { connectorApi, Dataset, Job, ChatResponse, ApiError } from '../services/connectorApi';
 import { generateHTMLReport, downloadHTMLReport, copyToClipboard } from '../utils/reportGenerator';
 import { loadTelegramSettings, sendJobCompletionNotification } from '../utils/telegramNotifications';
 import { diagnostics } from '../services/diagnostics';
@@ -64,6 +65,7 @@ export default function AppLayout() {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [errorToast, setErrorToast] = useState<ApiError | null>(null);
   const [conversationId] = useState(() => `conv-${Date.now()}`);
   const [isLoadingDatasets, setIsLoadingDatasets] = useState(false);
   const [privacySettings, setPrivacySettings] = useState({
@@ -346,7 +348,7 @@ export default function AppLayout() {
     data: { name?: string; filePath?: string; file?: File }
   ) => {
     if (type === 'local' && data.name) {
-      let result = null;
+      let result;
 
       if (data.file) {
         showToastMessage(`Uploading ${data.name}...`);
@@ -357,21 +359,32 @@ export default function AppLayout() {
           sourceType: 'local_file',
           filePath: data.filePath,
         });
+      } else {
+        return;
       }
 
-      if (result) {
+      if (result.success) {
         showToastMessage(`Successfully registered ${data.name}`);
+        diagnostics.success('Dataset', `Registered dataset: ${data.name}`);
 
-        const ingestResult = await connectorApi.ingestDataset(result.datasetId);
-        if (ingestResult) {
+        const ingestResult = await connectorApi.ingestDataset(result.data.datasetId);
+        if (ingestResult.success) {
           showToastMessage(`Started ingesting dataset`);
+          diagnostics.info('Dataset', `Started ingesting dataset: ${data.name}`);
+        } else {
+          const errorDetails = `${ingestResult.error.method} ${ingestResult.error.url}\n${ingestResult.error.status} ${ingestResult.error.statusText}\n${ingestResult.error.message}`;
+          diagnostics.error('Ingest', `Failed to ingest dataset: ${data.name}`, errorDetails);
+          setErrorToast(ingestResult.error);
         }
 
         await loadDatasetsFromConnector();
-        setActiveDataset(result.datasetId);
+        setActiveDataset(result.data.datasetId);
         setConnectorStatus('connected');
       } else {
-        showToastMessage('Failed to register dataset. Using mock mode.');
+        const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+        diagnostics.error('Dataset Registration', `Failed to register dataset: ${data.name}`, errorDetails);
+
+        setErrorToast(result.error);
 
         const newDataset: LocalDataset = {
           id: Date.now().toString(),
@@ -381,6 +394,8 @@ export default function AppLayout() {
         };
         setDatasets([...datasets, newDataset]);
         setActiveDataset(newDataset.id);
+        setDemoMode(true);
+        showToastMessage('⚠️ Using demo mode with mock data');
       }
     } else if (type === 'cloud' && data.file) {
       const newDataset: LocalDataset = {
@@ -431,7 +446,7 @@ export default function AppLayout() {
       };
       setMessages(prev => [...prev, waitingMessage]);
 
-      const response = await connectorApi.sendChatMessage({
+      const result = await connectorApi.sendChatMessage({
         datasetId: activeDataset,
         conversationId,
         message: content,
@@ -439,9 +454,13 @@ export default function AppLayout() {
 
       setMessages(prev => prev.filter(m => m.id !== waitingMessage.id));
 
-      if (response) {
-        await handleChatResponse(response);
+      if (result.success) {
+        await handleChatResponse(result.data);
       } else {
+        const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+        diagnostics.error('Chat', 'Failed to send chat message', errorDetails);
+        setErrorToast(result.error);
+
         showToastMessage('Failed to get response. Using mock data.');
         const mockResponse = connectorApi.getMockChatResponse(content);
         await handleChatResponse(mockResponse);
@@ -493,12 +512,18 @@ export default function AppLayout() {
 
       let queryResults;
       if (connectorStatus === 'connected') {
-        queryResults = await connectorApi.executeQueries({
+        const result = await connectorApi.executeQueries({
           datasetId: activeDataset,
           queries: response.queries,
         });
 
-        if (!queryResults) {
+        if (result.success) {
+          queryResults = result.data;
+        } else {
+          const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+          diagnostics.error('Query Execution', 'Failed to execute queries', errorDetails);
+          setErrorToast(result.error);
+
           showToastMessage('Failed to execute queries. Using mock data.');
           queryResults = connectorApi.getMockQueryResults();
         }
@@ -764,6 +789,13 @@ export default function AppLayout() {
           <CheckCircle className="w-5 h-5 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
+      )}
+
+      {errorToast && (
+        <ErrorToast
+          error={errorToast}
+          onClose={() => setErrorToast(null)}
+        />
       )}
     </div>
   );
