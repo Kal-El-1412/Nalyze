@@ -55,6 +55,7 @@ class IngestionPipeline:
             await storage.update_job(
                 job_id=job_id,
                 status="running",
+                stage="scanning_headers",
                 started_at=datetime.utcnow().isoformat()
             )
 
@@ -67,6 +68,11 @@ class IngestionPipeline:
 
             conn = duckdb.connect(str(db_path))
 
+            await storage.update_job(
+                job_id=job_id,
+                stage="ingesting_rows"
+            )
+
             logger.info(f"Loading CSV from {file_path} into DuckDB")
             conn.execute(f"""
                 CREATE TABLE data AS
@@ -76,6 +82,11 @@ class IngestionPipeline:
                     auto_detect=true
                 )
             """)
+
+            await storage.update_job(
+                job_id=job_id,
+                stage="building_catalog"
+            )
 
             logger.info("CSV loaded successfully, generating catalog")
             catalog = self._generate_catalog(conn)
@@ -97,6 +108,7 @@ class IngestionPipeline:
             await storage.update_job(
                 job_id=job_id,
                 status="done",
+                stage="done",
                 finished_at=datetime.utcnow().isoformat()
             )
 
@@ -113,6 +125,7 @@ class IngestionPipeline:
             await storage.update_job(
                 job_id=job_id,
                 status="error",
+                stage="error",
                 finished_at=datetime.utcnow().isoformat(),
                 error=str(e)
             )
@@ -136,6 +149,7 @@ class IngestionPipeline:
             await storage.update_job(
                 job_id=job_id,
                 status="running",
+                stage="scanning_headers",
                 started_at=datetime.utcnow().isoformat()
             )
 
@@ -154,8 +168,18 @@ class IngestionPipeline:
             sheet = self._select_best_sheet(wb)
             logger.info(f"Selected sheet: {sheet.title}")
 
+            await storage.update_job(
+                job_id=job_id,
+                stage="ingesting_rows"
+            )
+
             self._ingest_sheet_to_duckdb(conn, sheet)
             wb.close()
+
+            await storage.update_job(
+                job_id=job_id,
+                stage="building_catalog"
+            )
 
             logger.info("XLSX loaded successfully, generating catalog")
             catalog = self._generate_catalog(conn)
@@ -177,6 +201,7 @@ class IngestionPipeline:
             await storage.update_job(
                 job_id=job_id,
                 status="done",
+                stage="done",
                 finished_at=datetime.utcnow().isoformat()
             )
 
@@ -193,6 +218,7 @@ class IngestionPipeline:
             await storage.update_job(
                 job_id=job_id,
                 status="error",
+                stage="error",
                 finished_at=datetime.utcnow().isoformat(),
                 error=str(e)
             )

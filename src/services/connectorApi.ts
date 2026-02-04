@@ -30,8 +30,10 @@ export interface Job {
   type: string;
   datasetId: string;
   status: 'queued' | 'running' | 'done' | 'error';
+  stage?: 'queued' | 'scanning_headers' | 'ingesting_rows' | 'building_catalog' | 'done' | 'error';
   startedAt: string;
   finishedAt?: string;
+  updatedAt?: string;
   error?: string;
 }
 

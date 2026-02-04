@@ -27,8 +27,13 @@ interface LocalJob {
   id: string;
   title: string;
   status: 'running' | 'completed' | 'failed';
+  stage?: 'queued' | 'scanning_headers' | 'ingesting_rows' | 'building_catalog' | 'done' | 'error';
   timestamp: string;
   duration?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  updatedAt?: string;
+  error?: string;
 }
 
 interface Message {
@@ -110,14 +115,23 @@ export default function AppLayout() {
     loadReports();
 
     const healthInterval = setInterval(checkConnectorHealth, 30000);
-    const jobsInterval = setInterval(loadJobsFromConnector, 5000);
 
     return () => {
       unsubscribe();
       clearInterval(healthInterval);
-      clearInterval(jobsInterval);
     };
   }, []);
+
+  useEffect(() => {
+    const hasRunningJobs = jobs.some(job => job.status === 'running');
+    const pollInterval = hasRunningJobs ? 2000 : 5000;
+
+    const jobsInterval = setInterval(loadJobsFromConnector, pollInterval);
+
+    return () => {
+      clearInterval(jobsInterval);
+    };
+  }, [jobs]);
 
   const loadReports = () => {
     const savedReports = localStorage.getItem('reports');
@@ -225,8 +239,13 @@ export default function AppLayout() {
         id: job.jobId,
         title: `${job.type} - ${job.datasetId}`,
         status: job.status === 'done' ? 'completed' : job.status === 'error' ? 'failed' : 'running',
-        timestamp: new Date(job.startedAt).toLocaleTimeString(),
+        stage: job.stage || undefined,
+        timestamp: new Date(job.startedAt || Date.now()).toLocaleTimeString(),
         duration: job.finishedAt ? calculateDuration(job.startedAt, job.finishedAt) : undefined,
+        startedAt: job.startedAt || undefined,
+        finishedAt: job.finishedAt || undefined,
+        updatedAt: job.updatedAt || undefined,
+        error: job.error || undefined,
       }));
 
       for (const job of localJobs) {
@@ -246,8 +265,11 @@ export default function AppLayout() {
         id: job.jobId,
         title: `${job.type} - ${job.datasetId}`,
         status: 'completed' as const,
+        stage: 'done' as const,
         timestamp: new Date(job.startedAt).toLocaleTimeString(),
         duration: '2.3s',
+        startedAt: job.startedAt,
+        finishedAt: job.finishedAt,
       }));
       setJobs(mockJobs);
     }

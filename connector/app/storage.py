@@ -125,8 +125,10 @@ class StorageManager:
             "type": job_type,
             "datasetId": dataset_id,
             "status": status,
+            "stage": "queued",
             "startedAt": None,
             "finishedAt": None,
+            "updatedAt": now,
             "error": None
         }
 
@@ -144,6 +146,7 @@ class StorageManager:
         self,
         job_id: str,
         status: Optional[str] = None,
+        stage: Optional[str] = None,
         started_at: Optional[str] = None,
         finished_at: Optional[str] = None,
         error: Optional[str] = None
@@ -155,12 +158,16 @@ class StorageManager:
 
         if status is not None:
             registry["jobs"][job_id]["status"] = status
+        if stage is not None:
+            registry["jobs"][job_id]["stage"] = stage
         if started_at is not None:
             registry["jobs"][job_id]["startedAt"] = started_at
         if finished_at is not None:
             registry["jobs"][job_id]["finishedAt"] = finished_at
         if error is not None:
             registry["jobs"][job_id]["error"] = error
+
+        registry["jobs"][job_id]["updatedAt"] = datetime.utcnow().isoformat()
 
         self._save_registry(registry)
         return registry["jobs"][job_id]

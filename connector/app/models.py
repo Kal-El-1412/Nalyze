@@ -127,8 +127,10 @@ class Job(BaseModel):
     type: Literal["ingest"]
     datasetId: str
     status: Literal["queued", "running", "done", "error"]
+    stage: Optional[Literal["queued", "scanning_headers", "ingesting_rows", "building_catalog", "done", "error"]] = None
     startedAt: Optional[str]
     finishedAt: Optional[str]
+    updatedAt: Optional[str]
     error: Optional[str]
 
 
