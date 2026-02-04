@@ -82,6 +82,7 @@ class ChatOrchestratorRequest(BaseModel):
     message: Optional[str] = None
     intent: Optional[str] = None
     value: Optional[Any] = None
+    privacyMode: Optional[bool] = True
     resultsContext: Optional[ResultsContext] = None
 
     def __init__(self, **data):
@@ -220,6 +221,7 @@ class Catalog(BaseModel):
 class QueryExecuteRequest(BaseModel):
     datasetId: str = Field(..., description="ID of the dataset to query")
     queries: List[Dict[str, str]] = Field(..., description="List of queries with name and sql")
+    privacyMode: Optional[bool] = True
 
 
 class QueryResult(BaseModel):

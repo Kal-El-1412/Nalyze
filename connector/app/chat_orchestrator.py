@@ -7,6 +7,7 @@ from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
 from app.sql_validator import sql_validator
 from app.state import state_manager
+from app.pii_redactor import pii_redactor
 from app.models import (
     ChatOrchestratorRequest,
     NeedsClarificationResponse,
@@ -40,6 +41,11 @@ SYSTEM_PROMPT = """You are a privacy-first data analysis assistant that helps us
 - You must NEVER request or expect to see individual row details
 - All queries must aggregate, count, or summarize data
 - Treat all data as potentially sensitive
+- **PII PROTECTION**: When privacy mode is enabled, PII columns are redacted:
+  - PII column names are replaced with placeholders (PII_EMAIL_1, PII_PHONE_1, PII_NAME_1, etc.)
+  - You should NOT reference or query these redacted columns
+  - Focus on non-PII columns for analysis
+  - If user asks about personal data, explain that privacy mode prevents access to PII
 
 ## SQL Generation Rules (MANDATORY)
 1. ALWAYS include LIMIT clause (max 10000 rows)
@@ -216,8 +222,16 @@ class ChatOrchestrator:
         """Generate SQL queries based on analysis type without calling LLM"""
         analysis_type = context.get("analysis_type")
         time_period = context.get("time_period")
+        privacy_mode = request.privacyMode if request.privacyMode is not None else True
 
-        logger.info(f"Generating SQL plan for analysis_type={analysis_type}, time_period={time_period}")
+        logger.info(f"Generating SQL plan for analysis_type={analysis_type}, time_period={time_period}, privacyMode={privacy_mode}")
+
+        working_catalog = catalog
+        audit_shared = ["schema", "aggregates_only"]
+
+        if privacy_mode and catalog:
+            working_catalog, _ = pii_redactor.redact_catalog(catalog, privacy_mode)
+            audit_shared.append("PII_redacted")
 
         queries = []
 
@@ -229,8 +243,8 @@ class ChatOrchestrator:
             explanation = f"I'll count the total rows in your dataset for the {time_period} period."
 
         elif analysis_type == "top_categories":
-            if catalog:
-                categorical_col = self._detect_best_categorical_column(catalog)
+            if working_catalog:
+                categorical_col = self._detect_best_categorical_column(working_catalog)
                 if categorical_col:
                     queries.append({
                         "name": "top_categories",
@@ -251,9 +265,9 @@ class ChatOrchestrator:
                 explanation = f"I'll first discover the columns in your dataset, then show you the top categories for the {time_period} period."
 
         elif analysis_type == "trend":
-            if catalog:
-                date_col = self._detect_date_column(catalog)
-                metric_col = self._detect_metric_column(catalog)
+            if working_catalog:
+                date_col = self._detect_date_column(working_catalog)
+                metric_col = self._detect_metric_column(working_catalog)
 
                 if date_col and metric_col:
                     queries.append({
@@ -306,18 +320,24 @@ class ChatOrchestrator:
         return RunQueriesResponse(
             queries=query_objects,
             explanation=explanation,
-            audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+            audit=AuditInfo(sharedWithAI=audit_shared)
         )
 
     async def _generate_final_answer(
         self, request: ChatOrchestratorRequest, catalog: Any, context: Dict[str, Any]
     ) -> FinalAnswerResponse:
         """Generate final answer from query results"""
+        privacy_mode = request.privacyMode if request.privacyMode is not None else True
+        audit_shared = ["schema", "aggregates_only"]
+
+        if privacy_mode and catalog:
+            audit_shared.append("PII_redacted")
+
         if not request.resultsContext or not request.resultsContext.results:
             return FinalAnswerResponse(
                 message="No results to analyze.",
                 tables=None,
-                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+                audit=AuditInfo(sharedWithAI=audit_shared)
             )
 
         results = request.resultsContext.results
@@ -361,7 +381,7 @@ class ChatOrchestrator:
         return FinalAnswerResponse(
             message="\n".join(message_parts),
             tables=tables if tables else None,
-            audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+            audit=AuditInfo(sharedWithAI=audit_shared)
         )
 
     def _detect_best_categorical_column(self, catalog: Any) -> str:
@@ -424,9 +444,13 @@ class ChatOrchestrator:
     async def _call_openai(
         self, request: ChatOrchestratorRequest, catalog: Any
     ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
-        messages = self._build_messages(request, catalog)
+        privacy_mode = request.privacyMode if request.privacyMode is not None else True
 
-        logger.info("Calling OpenAI API...")
+        redacted_catalog, pii_map = pii_redactor.redact_catalog(catalog, privacy_mode)
+
+        messages = self._build_messages(request, redacted_catalog)
+
+        logger.info(f"Calling OpenAI API with privacyMode={privacy_mode}...")
         response = self.client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=messages,
@@ -516,35 +540,39 @@ class ChatOrchestrator:
 
         for col in catalog.columns:
             col_info = f"  - {col.name} ({col.type})"
-            if col.nullable:
+            if hasattr(col, 'nullable') and col.nullable:
                 col_info += " [nullable]"
             lines.append(col_info)
 
-        if catalog.detectedDateColumns:
+        if hasattr(catalog, 'detectedDateColumns') and catalog.detectedDateColumns:
             lines.append("")
             lines.append(f"Date Columns: {', '.join(catalog.detectedDateColumns)}")
 
-        if catalog.detectedNumericColumns:
+        if hasattr(catalog, 'detectedNumericColumns') and catalog.detectedNumericColumns:
             lines.append(f"Numeric Columns: {', '.join(catalog.detectedNumericColumns)}")
 
-        if catalog.summary:
+        if hasattr(catalog, 'basicStats') and catalog.basicStats:
             lines.append("")
             lines.append("Column Statistics:")
-            for col_name, stats in catalog.summary.items():
+            for col_name, stats in catalog.basicStats.items():
                 if isinstance(stats, dict):
                     stat_parts = []
                     if "count" in stats:
                         stat_parts.append(f"count={stats['count']}")
                     if "unique" in stats:
                         stat_parts.append(f"unique={stats['unique']}")
-                    if "min" in stats:
+                    if "min" in stats and stats["min"] is not None:
                         stat_parts.append(f"min={stats['min']}")
-                    if "max" in stats:
+                    if "max" in stats and stats["max"] is not None:
                         stat_parts.append(f"max={stats['max']}")
-                    if "mean" in stats:
+                    if "mean" in stats and stats["mean"] is not None:
                         stat_parts.append(f"mean={stats['mean']:.2f}")
                     if stat_parts:
                         lines.append(f"  {col_name}: {', '.join(stat_parts)}")
+
+        if hasattr(catalog, 'piiColumns') and catalog.piiColumns and len(catalog.piiColumns) > 0:
+            lines.append("")
+            lines.append("WARNING: PII columns detected but not redacted. This should not happen in privacy mode!")
 
         return "\n".join(lines)
 
@@ -598,7 +626,7 @@ class ChatOrchestrator:
             return RunQueriesResponse(
                 queries=query_objects,
                 explanation=response_data.get("explanation", "Running queries..."),
-                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only", "PII_redacted"])
             )
 
         elif response_type == "final_answer":
@@ -616,7 +644,7 @@ class ChatOrchestrator:
             return FinalAnswerResponse(
                 message=response_data.get("message", "Analysis complete."),
                 tables=tables,
-                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only", "PII_redacted"])
             )
 
         else:

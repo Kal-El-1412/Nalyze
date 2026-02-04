@@ -268,8 +268,21 @@ async def get_catalog(dataset_id: str):
 
 
 @app.post("/queries/execute", response_model=QueryExecuteResponse)
-async def execute_queries(request: QueryExecuteRequest):
-    logger.info(f"Execute queries requested for dataset {request.datasetId}, {len(request.queries)} queries")
+async def execute_queries(request_data: Request):
+    body = await request_data.json()
+
+    privacy_mode = body.get("privacyMode")
+    if privacy_mode is None:
+        privacy_header = request_data.headers.get("X-Privacy-Mode", "on")
+        privacy_mode = privacy_header.lower() == "on"
+
+    body["privacyMode"] = privacy_mode
+    request = QueryExecuteRequest(**body)
+
+    logger.info(
+        f"Execute queries requested for dataset {request.datasetId}, "
+        f"{len(request.queries)} queries, privacyMode={request.privacyMode}"
+    )
 
     dataset = await storage.get_dataset(request.datasetId)
     if not dataset:
@@ -372,10 +385,20 @@ async def get_pii_info(dataset_id: str):
 
 
 @app.post("/chat")
-async def chat(request: ChatOrchestratorRequest):
+async def chat(request_data: Request):
+    body = await request_data.json()
+
+    privacy_mode = body.get("privacyMode")
+    if privacy_mode is None:
+        privacy_header = request_data.headers.get("X-Privacy-Mode", "on")
+        privacy_mode = privacy_header.lower() == "on"
+
+    body["privacyMode"] = privacy_mode
+    request = ChatOrchestratorRequest(**body)
+
     logger.info(
         f"Chat request for dataset {request.datasetId}, "
-        f"conversation {request.conversationId}"
+        f"conversation {request.conversationId}, privacyMode={request.privacyMode}"
     )
 
     try:
