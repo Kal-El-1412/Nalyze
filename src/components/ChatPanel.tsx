@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap } from 'lucide-react';
 import DatasetSummaryCard from './DatasetSummaryCard';
 import { DatasetCatalog } from '../services/connectorApi';
 
@@ -28,11 +28,117 @@ interface ChatPanelProps {
   catalog?: DatasetCatalog | null;
 }
 
-const quickTemplates = [
-  { icon: TrendingUp, text: 'Show me trends over time in this data', label: 'Trend analysis', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
-  { icon: AlertTriangle, text: 'Find outliers and anomalies in the data', label: 'Outlier detection', color: 'text-amber-600 bg-amber-50 hover:bg-amber-100' },
-  { icon: BarChart3, text: 'Compare different cohorts or segments', label: 'Cohort comparison', color: 'text-purple-600 bg-purple-50 hover:bg-purple-100' },
-  { icon: BarChart3, text: 'Break down data by category', label: 'Category breakdown', color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' },
+interface AnalysisTemplate {
+  id: string;
+  icon: any;
+  label: string;
+  description: string;
+  getPrompt: (catalog: DatasetCatalog | null) => string;
+  color: string;
+}
+
+const getAnalysisTemplates = (): AnalysisTemplate[] => [
+  {
+    id: 'trend-monthly',
+    icon: LineChart,
+    label: 'Trend over time (monthly)',
+    description: 'Analyze how metrics change month by month',
+    getPrompt: (catalog) => {
+      const dateCol = catalog?.detectedDateColumns[0] || 'date';
+      const numericCol = catalog?.detectedNumericColumns[0] || 'value';
+      return `Show me the monthly trend of ${numericCol} over time using ${dateCol}. Include the total for each month and calculate the month-over-month change.`;
+    },
+    color: 'text-blue-600 bg-blue-50 hover:bg-blue-100',
+  },
+  {
+    id: 'week-over-week',
+    icon: Activity,
+    label: 'Week-over-week change',
+    description: 'Compare performance across consecutive weeks',
+    getPrompt: (catalog) => {
+      const dateCol = catalog?.detectedDateColumns[0] || 'date';
+      const numericCol = catalog?.detectedNumericColumns[0] || 'value';
+      return `Calculate week-over-week change for ${numericCol} using ${dateCol}. Show the absolute change and percentage change for each week.`;
+    },
+    color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100',
+  },
+  {
+    id: 'outliers',
+    icon: AlertTriangle,
+    label: 'Outliers and anomalies',
+    description: 'Identify unusual patterns or extreme values',
+    getPrompt: (catalog) => {
+      const numericCol = catalog?.detectedNumericColumns[0] || 'values';
+      return `Find outliers and anomalies in ${numericCol}. Show me values that are significantly different from the norm, including statistical outliers beyond 2 standard deviations.`;
+    },
+    color: 'text-amber-600 bg-amber-50 hover:bg-amber-100',
+  },
+  {
+    id: 'top-categories',
+    icon: BarChart3,
+    label: 'Top categories contributing to metric',
+    description: 'Rank categories by their contribution',
+    getPrompt: (catalog) => {
+      const numericCol = catalog?.detectedNumericColumns[0] || 'value';
+      const textCols = catalog?.columns.filter(c =>
+        c.type.toUpperCase().includes('TEXT') || c.type.toUpperCase().includes('VARCHAR')
+      ) || [];
+      const categoryCol = textCols[0]?.name || 'category';
+      return `Show me the top 10 ${categoryCol} ranked by total ${numericCol}. Include percentage contribution for each.`;
+    },
+    color: 'text-violet-600 bg-violet-50 hover:bg-violet-100',
+  },
+  {
+    id: 'cohort-comparison',
+    icon: Users,
+    label: 'Cohort comparison',
+    description: 'Compare different customer segments',
+    getPrompt: (catalog) => {
+      const textCols = catalog?.columns.filter(c =>
+        c.type.toUpperCase().includes('TEXT') || c.type.toUpperCase().includes('VARCHAR')
+      ) || [];
+      const segmentCol = textCols[0]?.name || 'segment';
+      const numericCol = catalog?.detectedNumericColumns[0] || 'value';
+      return `Compare different ${segmentCol} cohorts. Show average ${numericCol} for each cohort and highlight the key differences between them.`;
+    },
+    color: 'text-pink-600 bg-pink-50 hover:bg-pink-100',
+  },
+  {
+    id: 'funnel-dropoff',
+    icon: Filter,
+    label: 'Funnel-style drop-offs',
+    description: 'Analyze conversion rates across stages',
+    getPrompt: (catalog) => {
+      const textCols = catalog?.columns.filter(c =>
+        c.type.toUpperCase().includes('TEXT') || c.type.toUpperCase().includes('VARCHAR')
+      ) || [];
+      const stageCol = textCols.find(c => c.name.toLowerCase().includes('stage') || c.name.toLowerCase().includes('status'))?.name || textCols[0]?.name || 'stage';
+      return `Analyze the conversion funnel showing drop-off rates between ${stageCol}. Calculate the percentage of users progressing through each stage.`;
+    },
+    color: 'text-cyan-600 bg-cyan-50 hover:bg-cyan-100',
+  },
+  {
+    id: 'data-quality',
+    icon: Zap,
+    label: 'Data quality report',
+    description: 'Check completeness and consistency',
+    getPrompt: (catalog) => {
+      return `Generate a data quality report showing: (1) missing values per column, (2) duplicate rows, (3) data type inconsistencies, and (4) potential data entry errors.`;
+    },
+    color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
+  },
+  {
+    id: 'executive-summary',
+    icon: FileText,
+    label: 'Executive summary',
+    description: 'High-level overview of key metrics',
+    getPrompt: (catalog) => {
+      const numericCols = catalog?.detectedNumericColumns || [];
+      const metricsText = numericCols.length > 0 ? numericCols.slice(0, 3).join(', ') : 'key metrics';
+      return `Create an executive summary with: (1) total record count, (2) key statistics for ${metricsText}, (3) notable trends or patterns, and (4) any critical insights.`;
+    },
+    color: 'text-slate-600 bg-slate-50 hover:bg-slate-100',
+  },
 ];
 
 const suggestions = [
@@ -78,10 +184,13 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
     }
   };
 
-  const handleTemplateSelect = (template: typeof quickTemplates[0]) => {
-    setInput(template.text);
+  const handleTemplateSelect = (template: AnalysisTemplate) => {
+    const prompt = template.getPrompt(catalog);
+    setInput(prompt);
     setShowTemplates(false);
   };
+
+  const analysisTemplates = getAnalysisTemplates();
 
   const handleCopyMessage = (message: Message) => {
     navigator.clipboard.writeText(message.content);
@@ -320,29 +429,46 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             <button
               onClick={() => setShowTemplates(!showTemplates)}
               className="px-3 py-3 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-              title="Quick templates"
+              title="Analysis Templates - Context-aware prompts for your data"
             >
               <ChevronDown className={`w-5 h-5 text-slate-600 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
             </button>
             {showTemplates && (
-              <div className="absolute bottom-full left-0 mb-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden z-10">
-                <div className="p-2 border-b border-slate-200 bg-slate-50">
-                  <p className="text-xs font-semibold text-slate-700">Quick Templates</p>
+              <div className="absolute bottom-full left-0 mb-2 w-80 bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden z-10">
+                <div className="p-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
+                  <p className="text-sm font-semibold text-slate-900">Analysis Templates</p>
+                  <p className="text-xs text-slate-600 mt-0.5">Click to fill prompt with context</p>
                 </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {quickTemplates.map((template, idx) => (
+                <div className="max-h-96 overflow-y-auto">
+                  {analysisTemplates.map((template) => (
                     <button
-                      key={idx}
+                      key={template.id}
                       onClick={() => handleTemplateSelect(template)}
-                      className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0`}
+                      className="group w-full text-left px-3 py-3 hover:bg-slate-50 transition-all border-b border-slate-100 last:border-b-0"
+                      title={template.description}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <template.icon className={`w-3.5 h-3.5 ${template.color.split(' ')[0]}`} />
-                        <span className="text-xs font-medium text-slate-900">{template.label}</span>
+                      <div className="flex items-start gap-2.5">
+                        <div className={`mt-0.5 p-1.5 rounded-lg ${template.color}`}>
+                          <template.icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                              {template.label}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            {template.description}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-600">{template.text}</p>
                     </button>
                   ))}
+                </div>
+                <div className="p-2 border-t border-slate-200 bg-slate-50">
+                  <p className="text-xs text-slate-500 text-center">
+                    Templates auto-fill based on your dataset schema
+                  </p>
                 </div>
               </div>
             )}
