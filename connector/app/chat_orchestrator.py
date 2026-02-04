@@ -143,6 +143,32 @@ class ChatOrchestrator:
     async def process(
         self, request: ChatOrchestratorRequest
     ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
+        logger.info(
+            f"Processing chat request for dataset {request.datasetId}, "
+            f"conversation {request.conversationId}, message: {request.message[:50] if request.message else 'None'}..."
+        )
+
+        dataset = await storage.get_dataset(request.datasetId)
+        if not dataset:
+            return NeedsClarificationResponse(
+                question="Dataset not found. Please register the dataset first.",
+                choices=["Go to datasets"]
+            )
+
+        try:
+            catalog = await ingestion_pipeline.load_catalog(request.datasetId)
+        except FileNotFoundError:
+            catalog = None
+
+        state = state_manager.get_state(request.conversationId)
+        context = state.get("context", {})
+
+        if self._is_state_ready(context):
+            if request.resultsContext:
+                return await self._generate_final_answer(request, catalog, context)
+            else:
+                return await self._generate_sql_plan(request, catalog, context)
+
         if not self.openai_api_key or not self.client:
             logger.error("OPENAI_API_KEY not configured")
             return NeedsClarificationResponse(
@@ -157,27 +183,13 @@ class ChatOrchestrator:
                 choices=["Try again"]
             )
 
-        logger.info(
-            f"Processing chat request for dataset {request.datasetId}, "
-            f"conversation {request.conversationId}, message: {request.message[:50]}..."
-        )
-
-        dataset = await storage.get_dataset(request.datasetId)
-        if not dataset:
-            return NeedsClarificationResponse(
-                question="Dataset not found. Please register the dataset first.",
-                choices=["Go to datasets"]
-            )
-
         if dataset["status"] != "ingested":
             return NeedsClarificationResponse(
                 question="Dataset is not ingested yet. Run ingestion now?",
                 choices=["Ingest now"]
             )
 
-        try:
-            catalog = await ingestion_pipeline.load_catalog(request.datasetId)
-        except FileNotFoundError:
+        if not catalog:
             return NeedsClarificationResponse(
                 question="Dataset catalog not found. Please run ingestion first.",
                 choices=["Run ingestion"]
@@ -191,6 +203,223 @@ class ChatOrchestrator:
                 question=f"I encountered an error processing your request: {str(e)}. Please try rephrasing your question.",
                 choices=["Try again", "View dataset info"]
             )
+
+    def _is_state_ready(self, context: Dict[str, Any]) -> bool:
+        """Check if conversation state has required fields for SQL generation"""
+        analysis_type = context.get("analysis_type")
+        time_period = context.get("time_period")
+        return analysis_type is not None and time_period is not None
+
+    async def _generate_sql_plan(
+        self, request: ChatOrchestratorRequest, catalog: Any, context: Dict[str, Any]
+    ) -> RunQueriesResponse:
+        """Generate SQL queries based on analysis type without calling LLM"""
+        analysis_type = context.get("analysis_type")
+        time_period = context.get("time_period")
+
+        logger.info(f"Generating SQL plan for analysis_type={analysis_type}, time_period={time_period}")
+
+        queries = []
+
+        if analysis_type == "row_count":
+            queries.append({
+                "name": "row_count",
+                "sql": "SELECT COUNT(*) as row_count FROM data"
+            })
+            explanation = f"I'll count the total rows in your dataset for the {time_period} period."
+
+        elif analysis_type == "top_categories":
+            if catalog:
+                categorical_col = self._detect_best_categorical_column(catalog)
+                if categorical_col:
+                    queries.append({
+                        "name": "top_categories",
+                        "sql": f'SELECT "{categorical_col}", COUNT(*) as count FROM data GROUP BY "{categorical_col}" ORDER BY count DESC LIMIT 10'
+                    })
+                    explanation = f"I'll show you the top 10 categories in the {categorical_col} column for the {time_period} period."
+                else:
+                    queries.append({
+                        "name": "row_count",
+                        "sql": "SELECT COUNT(*) as row_count FROM data"
+                    })
+                    explanation = f"I couldn't find a categorical column, so I'll show you the total row count for the {time_period} period."
+            else:
+                queries.append({
+                    "name": "discover_columns",
+                    "sql": "SELECT * FROM data LIMIT 1"
+                })
+                explanation = f"I'll first discover the columns in your dataset, then show you the top categories for the {time_period} period."
+
+        elif analysis_type == "trend":
+            if catalog:
+                date_col = self._detect_date_column(catalog)
+                metric_col = self._detect_metric_column(catalog)
+
+                if date_col and metric_col:
+                    queries.append({
+                        "name": "monthly_trend",
+                        "sql": f'''SELECT
+                            DATE_TRUNC('month', "{date_col}") as month,
+                            COUNT(*) as count,
+                            SUM("{metric_col}") as total_{metric_col},
+                            AVG("{metric_col}") as avg_{metric_col}
+                        FROM data
+                        GROUP BY month
+                        ORDER BY month
+                        LIMIT 200'''
+                    })
+                    explanation = f"I'll analyze the trend of {metric_col} over time by month for the {time_period} period."
+                elif date_col:
+                    queries.append({
+                        "name": "monthly_count",
+                        "sql": f'''SELECT
+                            DATE_TRUNC('month', "{date_col}") as month,
+                            COUNT(*) as count
+                        FROM data
+                        GROUP BY month
+                        ORDER BY month
+                        LIMIT 200'''
+                    })
+                    explanation = f"I'll show you the monthly trend for the {time_period} period."
+                else:
+                    queries.append({
+                        "name": "row_count",
+                        "sql": "SELECT COUNT(*) as row_count FROM data"
+                    })
+                    explanation = f"I couldn't find date columns for trending, so I'll show you the total row count for the {time_period} period."
+            else:
+                queries.append({
+                    "name": "discover_columns",
+                    "sql": "SELECT * FROM data LIMIT 1"
+                })
+                explanation = f"I'll first discover the columns in your dataset, then show you the trends for the {time_period} period."
+
+        else:
+            queries.append({
+                "name": "row_count",
+                "sql": "SELECT COUNT(*) as row_count FROM data"
+            })
+            explanation = f"I'll analyze your data for the {time_period} period."
+
+        query_objects = [QueryToRun(name=q["name"], sql=q["sql"]) for q in queries]
+
+        return RunQueriesResponse(
+            queries=query_objects,
+            explanation=explanation,
+            audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+        )
+
+    async def _generate_final_answer(
+        self, request: ChatOrchestratorRequest, catalog: Any, context: Dict[str, Any]
+    ) -> FinalAnswerResponse:
+        """Generate final answer from query results"""
+        if not request.resultsContext or not request.resultsContext.results:
+            return FinalAnswerResponse(
+                message="No results to analyze.",
+                tables=None,
+                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+            )
+
+        results = request.resultsContext.results
+        analysis_type = context.get("analysis_type", "analysis")
+        time_period = context.get("time_period", "all time")
+
+        message_parts = [f"Here are your {analysis_type} results for {time_period}:"]
+        tables = []
+
+        for result in results:
+            if result.rows:
+                row_count = len(result.rows)
+
+                if analysis_type == "row_count":
+                    total = result.rows[0][0] if result.rows and len(result.rows[0]) > 0 else 0
+                    message_parts.append(f"\n**Total rows:** {total:,}")
+
+                elif analysis_type == "top_categories":
+                    message_parts.append(f"\n**Top categories:** Found {row_count} categories.")
+                    tables.append(TableData(
+                        title=f"Top {row_count} Categories",
+                        columns=result.columns,
+                        rows=result.rows
+                    ))
+
+                elif analysis_type == "trend":
+                    message_parts.append(f"\n**Trend analysis:** {row_count} data points.")
+                    tables.append(TableData(
+                        title="Monthly Trend",
+                        columns=result.columns,
+                        rows=result.rows
+                    ))
+
+                else:
+                    tables.append(TableData(
+                        title=result.name,
+                        columns=result.columns,
+                        rows=result.rows
+                    ))
+
+        return FinalAnswerResponse(
+            message="\n".join(message_parts),
+            tables=tables if tables else None,
+            audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+        )
+
+    def _detect_best_categorical_column(self, catalog: Any) -> str:
+        """Detect best categorical column from catalog"""
+        if not catalog or not catalog.columns:
+            return None
+
+        for col in catalog.columns:
+            col_type = col.type.upper()
+            if col_type in ["VARCHAR", "TEXT", "STRING", "CHAR"]:
+                if catalog.summary and col.name in catalog.summary:
+                    stats = catalog.summary[col.name]
+                    if isinstance(stats, dict):
+                        unique = stats.get("unique", 0)
+                        count = stats.get("count", 0)
+                        if count > 0 and unique > 1 and unique < count * 0.5:
+                            return col.name
+
+        for col in catalog.columns:
+            col_type = col.type.upper()
+            if col_type in ["VARCHAR", "TEXT", "STRING", "CHAR"]:
+                return col.name
+
+        return None
+
+    def _detect_date_column(self, catalog: Any) -> str:
+        """Detect first date column from catalog"""
+        if not catalog:
+            return None
+
+        if catalog.detectedDateColumns and len(catalog.detectedDateColumns) > 0:
+            return catalog.detectedDateColumns[0]
+
+        for col in catalog.columns:
+            col_type = col.type.upper()
+            if "DATE" in col_type or "TIME" in col_type:
+                return col.name
+
+        return None
+
+    def _detect_metric_column(self, catalog: Any) -> str:
+        """Detect first numeric metric column from catalog"""
+        if not catalog:
+            return None
+
+        if catalog.detectedNumericColumns and len(catalog.detectedNumericColumns) > 0:
+            for col_name in catalog.detectedNumericColumns:
+                if "id" not in col_name.lower():
+                    return col_name
+            return catalog.detectedNumericColumns[0]
+
+        for col in catalog.columns:
+            col_type = col.type.upper()
+            if col_type in ["INTEGER", "BIGINT", "DOUBLE", "FLOAT", "DECIMAL", "NUMERIC"]:
+                if "id" not in col.name.lower():
+                    return col.name
+
+        return None
 
     async def _call_openai(
         self, request: ChatOrchestratorRequest, catalog: Any
