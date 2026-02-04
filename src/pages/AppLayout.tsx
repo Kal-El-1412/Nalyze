@@ -627,7 +627,8 @@ export default function AppLayout() {
 
   const handleChatResponse = async (response: ChatResponse) => {
     if (response.type === 'needs_clarification') {
-      const intent = detectIntentFromQuestion(response.question);
+      // Use intent from backend if provided, otherwise detect from question
+      const intent = response.intent || detectIntentFromQuestion(response.question);
 
       const clarificationMessage: Message = {
         id: Date.now().toString(),
@@ -820,17 +821,20 @@ export default function AppLayout() {
         if (result.success) {
           await handleChatResponse(result.data);
 
-          // After acknowledging the intent, send a follow-up message to continue the conversation
-          const followUpResult = await connectorApi.sendChatMessage({
-            datasetId: activeDataset,
-            conversationId,
-            message: 'continue',
-            privacyMode,
-            safeMode,
-          });
+          // Only send follow-up if backend returned intent_acknowledged
+          // If backend already progressed (run_queries, needs_clarification), don't send continue
+          if (result.data.type === 'intent_acknowledged') {
+            const followUpResult = await connectorApi.sendChatMessage({
+              datasetId: activeDataset,
+              conversationId,
+              message: 'continue',
+              privacyMode,
+              safeMode,
+            });
 
-          if (followUpResult.success) {
-            await handleChatResponse(followUpResult.data);
+            if (followUpResult.success) {
+              await handleChatResponse(followUpResult.data);
+            }
           }
         } else {
           const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;

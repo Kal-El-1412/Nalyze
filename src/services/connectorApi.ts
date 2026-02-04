@@ -80,6 +80,7 @@ export interface ClarificationResponse {
   type: 'needs_clarification';
   question: string;
   choices: string[];
+  intent?: string;
   allowFreeText: boolean;
 }
 
