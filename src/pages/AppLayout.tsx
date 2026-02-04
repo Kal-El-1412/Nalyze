@@ -138,6 +138,12 @@ export default function AppLayout() {
     }
   }, [activeDataset, connectorStatus]);
 
+  useEffect(() => {
+    if (activeSection === 'reports' && connectorStatus === 'connected') {
+      loadReports();
+    }
+  }, [activeSection, connectorStatus]);
+
   const loadCatalog = async () => {
     if (!activeDataset) return;
 
@@ -153,6 +159,7 @@ export default function AppLayout() {
   const loadReports = async () => {
     try {
       const apiReports = await connectorApi.getReports();
+      console.log('Loaded reports from API:', apiReports);
       setReports(apiReports);
     } catch (error) {
       console.error('Error loading reports:', error);
@@ -805,6 +812,7 @@ export default function AppLayout() {
             <ReportsPanel
               reports={reports}
               datasets={datasets}
+              onRefresh={loadReports}
             />
           )}
           {activeSection === 'diagnostics' && (

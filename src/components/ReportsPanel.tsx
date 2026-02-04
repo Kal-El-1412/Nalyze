@@ -1,13 +1,14 @@
-import { FileText, Calendar, CheckCircle, ArrowLeft, Eye } from 'lucide-react';
+import { FileText, Calendar, CheckCircle, ArrowLeft, Eye, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Report } from '../services/connectorApi';
 
 interface ReportsPanelProps {
   reports: Report[];
   datasets: Array<{ id: string; name: string }>;
+  onRefresh?: () => void;
 }
 
-export default function ReportsPanel({ reports, datasets }: ReportsPanelProps) {
+export default function ReportsPanel({ reports, datasets, onRefresh }: ReportsPanelProps) {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   const getDatasetName = (datasetId: string) => {
@@ -136,9 +137,20 @@ export default function ReportsPanel({ reports, datasets }: ReportsPanelProps) {
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-slate-200">
-        <div className="flex items-center gap-2 text-slate-600">
-          <FileText className="w-4 h-4" />
-          <span className="text-sm font-medium">Saved Reports ({reports.length})</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-slate-600">
+            <FileText className="w-4 h-4" />
+            <span className="text-sm font-medium">Saved Reports ({reports.length})</span>
+          </div>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+              title="Refresh reports"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

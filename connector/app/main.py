@@ -509,6 +509,10 @@ async def handle_intent(request: ChatOrchestratorRequest):
         logger.info(f"State is ready for conversation {request.conversationId}, moving to query generation")
         # State is ready, generate queries
         response = await chat_orchestrator.process(request)
+
+        if isinstance(response, FinalAnswerResponse):
+            await save_report_from_response(request, response, context)
+
         return response
     else:
         # State not ready, check what's missing and ask for it
