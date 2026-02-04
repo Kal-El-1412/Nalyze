@@ -22,6 +22,48 @@ from app.router import deterministic_router
 
 logger = logging.getLogger(__name__)
 
+INTENT_EXTRACTION_PROMPT = """You are an intent classifier for data analysis queries.
+
+Your job is to extract structured information from user questions about their dataset.
+
+## Analysis Types
+Return ONE of these analysis types:
+- trend: Time-based analysis (trends over time, monthly/weekly patterns)
+- top_categories: Category breakdowns (top N, grouped by, distribution)
+- outliers: Anomaly detection (outliers, unusual values, anomalies)
+- row_count: Count records (how many rows, total records)
+- data_quality: Data validation (missing values, nulls, duplicates)
+
+## Required Output Format
+Return valid JSON with these fields:
+{
+  "analysis_type": "trend" | "top_categories" | "outliers" | "row_count" | "data_quality",
+  "time_period": "last_week" | "last_month" | "last_quarter" | "last_year" | "this_week" | "this_month" | "this_quarter" | "this_year" | null,
+  "metric": "column_name" | null,
+  "group_by": "column_name" | null,
+  "notes": "brief explanation of intent"
+}
+
+## Examples
+
+Input: "What are the revenue trends over the last quarter?"
+Output: {"analysis_type": "trend", "time_period": "last_quarter", "metric": "revenue", "group_by": null, "notes": "User wants to see revenue trends for last quarter"}
+
+Input: "Show me which products sold the most"
+Output: {"analysis_type": "top_categories", "time_period": null, "metric": "sales", "group_by": "product", "notes": "User wants top products by sales"}
+
+Input: "Are there any unusual values in the data?"
+Output: {"analysis_type": "outliers", "time_period": null, "metric": null, "group_by": null, "notes": "User wants to detect outliers"}
+
+Input: "How many records do we have?"
+Output: {"analysis_type": "row_count", "time_period": null, "metric": null, "group_by": null, "notes": "User wants total row count"}
+
+Input: "Check if there are missing values"
+Output: {"analysis_type": "data_quality", "time_period": null, "metric": null, "group_by": null, "notes": "User wants to check data quality"}
+
+Now analyze the user's question and return ONLY the JSON object.
+"""
+
 SYSTEM_PROMPT = """You are a privacy-first data analysis assistant that helps users explore their datasets through natural language.
 
 ## Your Responsibilities
@@ -178,18 +220,7 @@ class ChatOrchestrator:
             else:
                 return await self._generate_sql_plan(request, catalog, context)
 
-        # Check if AI Assist is enabled
-        ai_assist = request.aiAssist if request.aiAssist is not None else False
-
-        if not ai_assist:
-            # AI Assist is OFF - cannot process free-text queries without OpenAI
-            logger.info("AI Assist is OFF - cannot process free-text queries")
-            return FinalAnswerResponse(
-                message="AI Assist is currently OFF. To ask questions in natural language, please enable AI Assist using the toggle next to the chat input.",
-                tables=None
-            )
-
-        # AI Assist is ON - first try deterministic router
+        # Check if message provided
         if not request.message:
             logger.error("Message is required for processing")
             return NeedsClarificationResponse(
@@ -197,7 +228,10 @@ class ChatOrchestrator:
                 choices=["Try again"]
             )
 
-        # Try deterministic routing first
+        # Check if AI Assist is enabled
+        ai_assist = request.aiAssist if request.aiAssist is not None else False
+
+        # Try deterministic routing first (regardless of aiAssist setting)
         logger.info(f"Trying deterministic router for message: '{request.message[:50]}...'")
         routing_result = deterministic_router.route_intent(request.message)
         analysis_type = routing_result.get("analysis_type")
@@ -206,7 +240,7 @@ class ChatOrchestrator:
 
         logger.info(f"Deterministic router result: analysis_type={analysis_type}, confidence={confidence:.2f}")
 
-        # If high confidence (>=0.8), use deterministic path
+        # If high confidence (>=0.8), use deterministic path (works regardless of aiAssist)
         if confidence >= 0.8 and analysis_type:
             logger.info(f"High confidence ({confidence:.2f}) - using deterministic path")
 
@@ -240,8 +274,45 @@ class ChatOrchestrator:
                     intent="set_time_period"
                 )
 
-        # Low/medium confidence - need OpenAI
-        logger.info(f"Low/medium confidence ({confidence:.2f}) - falling back to OpenAI")
+        # Low/medium confidence (< 0.8) - need to handle based on aiAssist setting
+        logger.info(f"Low/medium confidence ({confidence:.2f}) - need clarification or AI")
+
+        if not ai_assist:
+            # AI Assist is OFF - ask user to pick analysis type manually
+            logger.info("AI Assist is OFF - asking user to choose analysis type")
+
+            # Check if we've already asked for analysis type in this conversation
+            # (to avoid asking repeatedly)
+            state = state_manager.get_state(request.conversationId)
+            context = state.get("context", {})
+
+            if context.get("clarification_asked"):
+                # We already asked once, return helpful message
+                return FinalAnswerResponse(
+                    message="I'm not sure how to help with that. Try asking about trends, categories, outliers, row counts, or data quality. Or enable AI Assist for more flexible queries.",
+                    tables=None
+                )
+
+            # Ask for analysis type clarification
+            state_manager.update_context(
+                request.conversationId,
+                {"clarification_asked": True}
+            )
+
+            return NeedsClarificationResponse(
+                question="What would you like to analyze?",
+                choices=[
+                    "Trends over time",
+                    "Top categories",
+                    "Find outliers",
+                    "Count rows",
+                    "Check data quality"
+                ],
+                intent="set_analysis_type"
+            )
+
+        # AI Assist is ON - use OpenAI intent extractor
+        logger.info("AI Assist is ON - using OpenAI intent extractor")
 
         # Check if OpenAI API key is configured
         if not self.openai_api_key:
@@ -273,11 +344,50 @@ class ChatOrchestrator:
             )
 
         try:
-            return await self._call_openai(request, catalog)
+            # Extract intent with OpenAI
+            intent_data = await self._extract_intent_with_openai(request, catalog)
+
+            # Update conversation state with extracted intent
+            extracted_fields = {}
+            if "analysis_type" in intent_data and intent_data["analysis_type"]:
+                extracted_fields["analysis_type"] = intent_data["analysis_type"]
+
+            if "time_period" in intent_data and intent_data["time_period"]:
+                extracted_fields["time_period"] = intent_data["time_period"]
+
+            if "metric" in intent_data and intent_data["metric"]:
+                extracted_fields["metric"] = intent_data["metric"]
+
+            if "group_by" in intent_data and intent_data["group_by"]:
+                extracted_fields["grouping"] = intent_data["group_by"]
+
+            if "notes" in intent_data and intent_data["notes"]:
+                extracted_fields["notes"] = intent_data["notes"]
+
+            logger.info(f"Updating state with extracted fields: {extracted_fields}")
+            state_manager.update_context(request.conversationId, extracted_fields)
+
+            # Check if state is now ready
+            updated_state = state_manager.get_state(request.conversationId)
+            updated_context = updated_state.get("context", {})
+
+            if self._is_state_ready(updated_context):
+                # State is ready, generate SQL
+                logger.info("State is ready after intent extraction - generating SQL")
+                return await self._generate_sql_plan(request, catalog, updated_context)
+            else:
+                # State not ready, need clarification (probably time_period)
+                logger.info("State not ready after intent extraction - requesting clarification")
+                return NeedsClarificationResponse(
+                    question="What time period would you like to analyze?",
+                    choices=["Last week", "Last month", "Last quarter", "Last year"],
+                    intent="set_time_period"
+                )
+
         except Exception as e:
-            logger.error(f"OpenAI orchestration error: {e}", exc_info=True)
+            logger.error(f"Intent extraction error: {e}", exc_info=True)
             return NeedsClarificationResponse(
-                question=f"I encountered an error processing your request: {str(e)}. Please try rephrasing your question.",
+                question=f"I had trouble understanding your request: {str(e)}. Could you rephrase your question?",
                 choices=["Try again", "View dataset info"]
             )
 
@@ -749,6 +859,64 @@ class ChatOrchestrator:
             raise ValueError("Invalid response format from AI")
 
         return self._parse_response(response_data, safe_mode)
+
+    async def _extract_intent_with_openai(
+        self, request: ChatOrchestratorRequest, catalog: Any
+    ) -> Dict[str, Any]:
+        """
+        Use OpenAI to extract structured intent from ambiguous user queries.
+        Returns: {analysis_type, time_period, metric, group_by, notes}
+        """
+        logger.info(f"Extracting intent with OpenAI for: '{request.message[:50]}...'")
+
+        catalog_info = self._build_catalog_context(catalog)
+
+        messages = [
+            {"role": "system", "content": INTENT_EXTRACTION_PROMPT},
+            {
+                "role": "system",
+                "content": f"Dataset Schema:\n{catalog_info}"
+            },
+            {
+                "role": "user",
+                "content": request.message
+            }
+        ]
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.1,
+                max_tokens=500
+            )
+
+            response_text = response.choices[0].message.content
+            logger.info(f"OpenAI intent extraction response: {response_text}")
+
+            intent_data = json.loads(response_text)
+
+            # Validate that we got required fields
+            if "analysis_type" not in intent_data:
+                raise ValueError("Missing analysis_type in intent extraction response")
+
+            # Normalize time_period if present
+            if intent_data.get("time_period"):
+                intent_data["time_period"] = str(intent_data["time_period"]).lower()
+
+            logger.info(f"Extracted intent: analysis_type={intent_data.get('analysis_type')}, "
+                       f"time_period={intent_data.get('time_period')}, "
+                       f"metric={intent_data.get('metric')}")
+
+            return intent_data
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse intent extraction response: {e}")
+            raise ValueError("Invalid JSON response from intent extractor")
+        except Exception as e:
+            logger.error(f"Intent extraction error: {e}", exc_info=True)
+            raise
 
     def _build_messages(self, request: ChatOrchestratorRequest, catalog: Any) -> list:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]

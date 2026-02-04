@@ -505,10 +505,29 @@ async def handle_intent(request: ChatOrchestratorRequest):
     if not field_name:
         field_name = request.intent.replace("set_", "")
 
+    # Normalize user-friendly choice text to internal values
+    value = request.value
+    if request.intent == "set_analysis_type":
+        # Map user-friendly analysis type names to internal values
+        analysis_type_map = {
+            "Trends over time": "trend",
+            "Top categories": "top_categories",
+            "Find outliers": "outliers",
+            "Count rows": "row_count",
+            "Check data quality": "data_quality",
+            # Also support lowercase versions
+            "trends over time": "trend",
+            "top categories": "top_categories",
+            "find outliers": "outliers",
+            "count rows": "row_count",
+            "check data quality": "data_quality",
+        }
+        value = analysis_type_map.get(value, value)
+
     if request.intent.startswith("set_"):
-        update_data = {field_name: request.value}
+        update_data = {field_name: value}
     else:
-        update_data = {request.intent: request.value}
+        update_data = {request.intent: value}
 
     logger.info(f"Update data: {update_data}")
 
