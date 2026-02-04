@@ -103,6 +103,7 @@ class NeedsClarificationResponse(BaseModel):
     type: Literal["needs_clarification"] = "needs_clarification"
     question: str
     choices: List[str]
+    intent: Optional[str] = None
     audit: AuditInfo = Field(default_factory=AuditInfo)
 
 

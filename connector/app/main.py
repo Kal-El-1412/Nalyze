@@ -434,7 +434,7 @@ async def chat(request_data: Request):
         )
 
 
-async def handle_intent(request: ChatOrchestratorRequest) -> IntentAcknowledgmentResponse:
+async def handle_intent(request: ChatOrchestratorRequest):
     logger.info(f"Handling intent: {request.intent} = {request.value}")
 
     state = state_manager.get_state(request.conversationId)
@@ -465,17 +465,38 @@ async def handle_intent(request: ChatOrchestratorRequest) -> IntentAcknowledgmen
     state_manager.update_state(request.conversationId, context=state["context"])
 
     updated_state = state_manager.get_state(request.conversationId)
+    context = updated_state.get("context", {})
 
     message = f"Updated {field_name.replace('_', ' ')} to '{request.value}'"
 
     logger.info(f"State updated for conversation {request.conversationId}: {field_name} = {request.value}")
 
-    return IntentAcknowledgmentResponse(
-        intent=request.intent,
-        value=request.value,
-        state=updated_state,
-        message=message
-    )
+    # Check if state is ready after update
+    if "analysis_type" in context and "time_period" in context:
+        logger.info(f"State is ready for conversation {request.conversationId}, moving to query generation")
+        # State is ready, generate queries
+        response = await chat_orchestrator.process(request)
+        return response
+    else:
+        # State not ready, check what's missing and ask for it
+        if "analysis_type" not in context:
+            logger.info(f"Missing analysis_type after intent, asking for it")
+            return NeedsClarificationResponse(
+                question="What type of analysis would you like to perform?",
+                choices=["row_count", "top_categories", "trend"],
+                intent="set_analysis_type"
+            )
+        elif "time_period" not in context:
+            logger.info(f"Missing time_period after intent, asking for it")
+            return NeedsClarificationResponse(
+                question="What time period would you like to analyze?",
+                choices=["Last 7 days", "Last 30 days", "Last 90 days", "All time"],
+                intent="set_time_period"
+            )
+        else:
+            # All required fields present (shouldn't reach here)
+            response = await chat_orchestrator.process(request)
+            return response
 
 
 async def handle_message(request: ChatOrchestratorRequest):
@@ -486,14 +507,16 @@ async def handle_message(request: ChatOrchestratorRequest):
         logger.info(f"Missing analysis_type for conversation {request.conversationId}, returning clarification")
         return NeedsClarificationResponse(
             question="What type of analysis would you like to perform?",
-            choices=["trend", "comparison", "distribution", "correlation", "summary"]
+            choices=["row_count", "top_categories", "trend"],
+            intent="set_analysis_type"
         )
 
     if "time_period" not in context:
         logger.info(f"Missing time_period for conversation {request.conversationId}, returning clarification")
         return NeedsClarificationResponse(
             question="What time period would you like to analyze?",
-            choices=["last_7_days", "last_30_days", "last_90_days", "last_year", "year_to_date", "all_time"]
+            choices=["Last 7 days", "Last 30 days", "Last 90 days", "All time"],
+            intent="set_time_period"
         )
 
     state_manager.update_state(
