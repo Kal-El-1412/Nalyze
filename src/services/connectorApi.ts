@@ -50,6 +50,7 @@ export interface ChatRequest {
   intent?: string;
   value?: any;
   privacyMode?: boolean;
+  safeMode?: boolean;
   resultsContext?: {
     results: QueryResult[];
   };
@@ -192,10 +193,20 @@ class ConnectorAPI {
     return true;
   }
 
+  private getSafeMode(): boolean {
+    const saved = localStorage.getItem('safeMode');
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    return false;
+  }
+
   private getPrivacyHeaders(): Record<string, string> {
     const privacyMode = this.getPrivacyMode();
+    const safeMode = this.getSafeMode();
     return {
       'X-Privacy-Mode': privacyMode ? 'on' : 'off',
+      'X-Safe-Mode': safeMode ? 'on' : 'off',
     };
   }
 
@@ -428,9 +439,11 @@ class ConnectorAPI {
 
     try {
       const privacyMode = this.getPrivacyMode();
+      const safeMode = this.getSafeMode();
       const requestWithPrivacy = {
         ...request,
         privacyMode,
+        safeMode,
       };
 
       const response = await fetch(url, {
