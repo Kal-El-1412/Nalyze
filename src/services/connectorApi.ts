@@ -49,6 +49,7 @@ export interface ChatRequest {
   message?: string;
   intent?: string;
   value?: any;
+  privacyMode?: boolean;
   resultsContext?: {
     results: QueryResult[];
   };
@@ -183,6 +184,21 @@ class ConnectorAPI {
     return saved || 'http://localhost:7337';
   }
 
+  private getPrivacyMode(): boolean {
+    const saved = localStorage.getItem('privacyMode');
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    return true;
+  }
+
+  private getPrivacyHeaders(): Record<string, string> {
+    const privacyMode = this.getPrivacyMode();
+    return {
+      'X-Privacy-Mode': privacyMode ? 'on' : 'off',
+    };
+  }
+
   setBaseUrl(url: string) {
     this.baseUrl = url;
     localStorage.setItem('connectorBaseUrl', url);
@@ -253,6 +269,9 @@ class ConnectorAPI {
       try {
         const response = await fetch(`${this.baseUrl}/health`, {
           method: 'GET',
+          headers: {
+            ...this.getPrivacyHeaders(),
+          },
           signal: AbortSignal.timeout(5000),
         });
 
@@ -290,6 +309,7 @@ class ConnectorAPI {
         method,
         headers: {
           'Content-Type': 'application/json',
+          ...this.getPrivacyHeaders(),
         },
         body: JSON.stringify(request),
       });
@@ -318,6 +338,9 @@ class ConnectorAPI {
 
       const response = await fetch(url, {
         method,
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
         body: formData,
       });
 
@@ -338,6 +361,9 @@ class ConnectorAPI {
     try {
       const response = await fetch(`${this.baseUrl}/datasets`, {
         method: 'GET',
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
       });
 
       if (!response.ok) {
@@ -358,6 +384,9 @@ class ConnectorAPI {
     try {
       const response = await fetch(url, {
         method,
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
       });
 
       if (!response.ok) {
@@ -377,6 +406,9 @@ class ConnectorAPI {
     try {
       const response = await fetch(`${this.baseUrl}/jobs`, {
         method: 'GET',
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
       });
 
       if (!response.ok) {
@@ -395,12 +427,19 @@ class ConnectorAPI {
     const method = 'POST';
 
     try {
+      const privacyMode = this.getPrivacyMode();
+      const requestWithPrivacy = {
+        ...request,
+        privacyMode,
+      };
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
+          ...this.getPrivacyHeaders(),
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(requestWithPrivacy),
       });
 
       if (!response.ok) {
@@ -425,6 +464,7 @@ class ConnectorAPI {
         method,
         headers: {
           'Content-Type': 'application/json',
+          ...this.getPrivacyHeaders(),
         },
         body: JSON.stringify(request),
       });
@@ -446,6 +486,9 @@ class ConnectorAPI {
     try {
       const response = await fetch(`${this.baseUrl}/datasets/${datasetId}/catalog`, {
         method: 'GET',
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
       });
 
       if (!response.ok) {
