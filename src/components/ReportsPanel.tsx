@@ -17,12 +17,11 @@ export default function ReportsPanel({ reports, datasets, onRefresh }: ReportsPa
   };
 
   const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString();
-    } catch {
-      return dateString;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return 'Unknown date';
     }
+    return date.toLocaleString();
   };
 
   if (selectedReport) {

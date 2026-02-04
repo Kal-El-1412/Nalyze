@@ -25,6 +25,14 @@ interface ReportData {
   tables?: TableData[];
 }
 
+const formatTimestamp = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) {
+    return 'Unknown time';
+  }
+  return date.toLocaleString();
+};
+
 export function generateHTMLReport(data: ReportData): string {
   const { datasetName, timestamp, messages, summary, tableData, auditLog } = data;
 
@@ -35,7 +43,7 @@ export function generateHTMLReport(data: ReportData): string {
     <div class="message ${m.type}">
       <div class="message-header">
         <span class="message-type">${m.type === 'user' ? 'User' : 'Assistant'}</span>
-        <span class="message-time">${m.timestamp}</span>
+        <span class="message-time">${formatTimestamp(m.timestamp)}</span>
       </div>
       <div class="message-content">${escapeHtml(m.content)}</div>
     </div>
@@ -313,7 +321,7 @@ export function generateHTMLReport(data: ReportData): string {
       <h1>Data Analysis Report</h1>
       <div class="meta">
         <div>Dataset: ${escapeHtml(datasetName)}</div>
-        <div>Generated: ${escapeHtml(timestamp)}</div>
+        <div>Generated: ${formatTimestamp(timestamp)}</div>
       </div>
     </div>
 

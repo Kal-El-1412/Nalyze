@@ -70,6 +70,9 @@ export default function DiagnosticsPanel({ connectorStatus, connectorVersion, on
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      return 'Unknown time';
+    }
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 

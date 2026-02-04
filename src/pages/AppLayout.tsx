@@ -267,7 +267,7 @@ export default function AppLayout() {
     const reportData = {
       datasetId: activeDataset || undefined,
       datasetName,
-      timestamp: new Date().toLocaleString(),
+      timestamp: new Date().toISOString(),
       conversationId,
       messages,
       summary: resultsData.summary,
@@ -283,7 +283,7 @@ export default function AppLayout() {
       id: `report-${Date.now()}`,
       datasetId: activeDataset || undefined,
       datasetName,
-      timestamp: new Date().toLocaleString(),
+      timestamp: new Date().toISOString(),
       conversationId,
       htmlContent,
       jsonContent,
