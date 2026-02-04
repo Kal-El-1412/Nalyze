@@ -18,6 +18,7 @@ from app.models import (
     TableData,
     AuditInfo
 )
+from app.router import deterministic_router
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +189,61 @@ class ChatOrchestrator:
                 tables=None
             )
 
-        # AI Assist is ON - check if OpenAI API key is configured
+        # AI Assist is ON - first try deterministic router
+        if not request.message:
+            logger.error("Message is required for processing")
+            return NeedsClarificationResponse(
+                question="Please provide a message to process.",
+                choices=["Try again"]
+            )
+
+        # Try deterministic routing first
+        logger.info(f"Trying deterministic router for message: '{request.message[:50]}...'")
+        routing_result = deterministic_router.route_intent(request.message)
+        analysis_type = routing_result.get("analysis_type")
+        confidence = routing_result.get("confidence", 0.0)
+        params = routing_result.get("params", {})
+
+        logger.info(f"Deterministic router result: analysis_type={analysis_type}, confidence={confidence:.2f}")
+
+        # If high confidence (>=0.8), use deterministic path
+        if confidence >= 0.8 and analysis_type:
+            logger.info(f"High confidence ({confidence:.2f}) - using deterministic path")
+
+            # Update state with analysis_type
+            state_manager.update_context(
+                request.conversationId,
+                {"analysis_type": analysis_type}
+            )
+
+            # If we extracted time_period from message, update state
+            if "time_period" in params:
+                state_manager.update_context(
+                    request.conversationId,
+                    {"time_period": params["time_period"]}
+                )
+
+            # Check if state is now ready
+            updated_state = state_manager.get_state(request.conversationId)
+            updated_context = updated_state.get("context", {})
+
+            if self._is_state_ready(updated_context):
+                # State is ready, generate SQL
+                logger.info("State is ready after deterministic routing - generating SQL")
+                return await self._generate_sql_plan(request, catalog, updated_context)
+            else:
+                # State not ready, need clarification (probably time_period)
+                logger.info("State not ready after deterministic routing - requesting clarification")
+                return NeedsClarificationResponse(
+                    question="What time period would you like to analyze?",
+                    choices=["Last week", "Last month", "Last quarter", "Last year"],
+                    intent="set_time_period"
+                )
+
+        # Low/medium confidence - need OpenAI
+        logger.info(f"Low/medium confidence ({confidence:.2f}) - falling back to OpenAI")
+
+        # Check if OpenAI API key is configured
         if not self.openai_api_key:
             logger.warning("AI Assist is ON but OPENAI_API_KEY is not configured")
             return FinalAnswerResponse(
@@ -203,13 +258,6 @@ class ChatOrchestrator:
             return NeedsClarificationResponse(
                 question=error_message,
                 choices=["Contact administrator"]
-            )
-
-        if not request.message:
-            logger.error("Message is required for LLM processing")
-            return NeedsClarificationResponse(
-                question="Please provide a message to process.",
-                choices=["Try again"]
             )
 
         if dataset["status"] != "ingested":
