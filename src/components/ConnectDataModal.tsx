@@ -10,20 +10,47 @@ interface ConnectDataModalProps {
 export default function ConnectDataModal({ isOpen, onClose, onConnect }: ConnectDataModalProps) {
   const [selectedType, setSelectedType] = useState<'local' | 'cloud' | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [localFile, setLocalFile] = useState<File | null>(null);
   const [datasetName, setDatasetName] = useState('');
   const [filePath, setFilePath] = useState('');
 
   if (!isOpen) return null;
 
+  const handleLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setLocalFile(selectedFile);
+
+      const inputElement = e.target as HTMLInputElement;
+      let extractedPath = '';
+
+      if ((selectedFile as any).path) {
+        extractedPath = (selectedFile as any).path;
+      } else if (inputElement.value) {
+        extractedPath = inputElement.value.replace(/^C:\\fakepath\\/, '');
+      } else {
+        extractedPath = selectedFile.name;
+      }
+
+      setFilePath(extractedPath);
+
+      if (!datasetName) {
+        const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, '');
+        setDatasetName(nameWithoutExt);
+      }
+    }
+  };
+
   const handleConnect = () => {
     if (selectedType === 'cloud' && file) {
       onConnect('cloud', { file });
-    } else if (selectedType === 'local' && datasetName && filePath) {
-      onConnect('local', { name: datasetName, filePath });
+    } else if (selectedType === 'local' && datasetName && (filePath || localFile)) {
+      onConnect('local', { name: datasetName, filePath: filePath || localFile?.name || '' });
     }
     onClose();
     setSelectedType(null);
     setFile(null);
+    setLocalFile(null);
     setDatasetName('');
     setFilePath('');
   };
@@ -131,6 +158,25 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
               <div className="pt-4 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Choose File
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.parquet"
+                    onChange={handleLocalFileChange}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:cursor-pointer"
+                  />
+                  {localFile && (
+                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-700">
+                      Selected: {localFile.name} ({(localFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 mt-2">
+                    Browse and select your spreadsheet file (CSV, XLSX, XLS, Parquet)
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     Dataset Name
                   </label>
                   <input
@@ -140,20 +186,8 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
                     placeholder="e.g., Sales Data 2024"
                     className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    File Path
-                  </label>
-                  <input
-                    type="text"
-                    value={filePath}
-                    onChange={(e) => setFilePath(e.target.value)}
-                    placeholder="/Users/you/Documents/sales.xlsx"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
                   <p className="text-xs text-slate-500 mt-2">
-                    Enter the full path to your spreadsheet file on your local machine
+                    Auto-filled from filename, but you can customize it
                   </p>
                 </div>
               </div>
@@ -187,7 +221,7 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
             disabled={
               !selectedType ||
               (selectedType === 'cloud' && !file) ||
-              (selectedType === 'local' && (!datasetName || !filePath))
+              (selectedType === 'local' && (!datasetName || !localFile))
             }
             className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
