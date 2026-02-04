@@ -22,6 +22,7 @@ export default function Settings() {
     insights: false,
   });
   const [privacyMode, setPrivacyMode] = useState(true);
+  const [safeMode, setSafeMode] = useState(false);
   const [privacy, setPrivacy] = useState({
     allowSampleRows: false,
     maskPII: true,
@@ -71,6 +72,11 @@ export default function Settings() {
       setPrivacyMode(true);
     }
 
+    const savedSafeMode = localStorage.getItem('safeMode');
+    if (savedSafeMode !== null) {
+      setSafeMode(savedSafeMode === 'true');
+    }
+
     const savedTelegram = loadTelegramSettings();
     setTelegram(savedTelegram);
   }, []);
@@ -82,11 +88,13 @@ export default function Settings() {
     localStorage.setItem('notifications', JSON.stringify(notifications));
     localStorage.setItem('privacySettings', JSON.stringify(privacy));
     localStorage.setItem('privacyMode', privacyMode.toString());
+    localStorage.setItem('safeMode', safeMode.toString());
     localStorage.setItem('demoMode', demoMode.toString());
     saveTelegramSettings(telegram);
     connectorApi.setBaseUrl(connectorUrl);
 
     window.dispatchEvent(new Event('privacyModeChange'));
+    window.dispatchEvent(new Event('safeModeChange'));
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -291,6 +299,30 @@ export default function Settings() {
                   checked={privacyMode}
                   onChange={(e) => setPrivacyMode(e.target.checked)}
                   className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 ml-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors bg-blue-50/50">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="font-semibold text-slate-900">Safe Mode (Aggregates only)</div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      safeMode
+                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                        : 'bg-slate-100 text-slate-600 border border-slate-300'
+                    }`}>
+                      {safeMode ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    When enabled, AI only uses schema + aggregated statistics. No raw rows are sent to AI.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={safeMode}
+                  onChange={(e) => setSafeMode(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 ml-4"
                 />
               </label>
             </div>
