@@ -99,6 +99,30 @@ export interface DatasetColumn {
   type: string;
 }
 
+export interface ColumnStats {
+  min?: any;
+  max?: any;
+  avg?: number;
+  nullPct: number;
+  approxDistinct?: number;
+}
+
+export interface PIIColumnInfo {
+  name: string;
+  type: 'email' | 'phone' | 'name';
+  confidence: number;
+}
+
+export interface DatasetCatalog {
+  table: string;
+  rowCount: number;
+  columns: DatasetColumn[];
+  basicStats: Record<string, ColumnStats>;
+  detectedDateColumns: string[];
+  detectedNumericColumns: string[];
+  piiColumns: PIIColumnInfo[];
+}
+
 export interface DatasetTable {
   name: string;
   rowCount: number;
@@ -394,7 +418,7 @@ class ConnectorAPI {
     }
   }
 
-  async getDatasetCatalog(datasetId: string): Promise<DatasetCatalogResponse | null> {
+  async getDatasetCatalog(datasetId: string): Promise<DatasetCatalog | null> {
     try {
       const response = await fetch(`${this.baseUrl}/datasets/${datasetId}/catalog`, {
         method: 'GET',

@@ -11,7 +11,7 @@ import DatasetSummary from '../components/DatasetSummary';
 import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
-import { connectorApi, Dataset, Job, ChatResponse, ApiError } from '../services/connectorApi';
+import { connectorApi, Dataset, Job, ChatResponse, ApiError, DatasetCatalog } from '../services/connectorApi';
 import { generateHTMLReport, downloadHTMLReport, copyToClipboard } from '../utils/reportGenerator';
 import { loadTelegramSettings, sendJobCompletionNotification } from '../utils/telegramNotifications';
 import { diagnostics } from '../services/diagnostics';
@@ -62,6 +62,7 @@ export default function AppLayout() {
   const [activeSection, setActiveSection] = useState<'datasets' | 'jobs' | 'reports' | 'diagnostics' | 'settings'>('datasets');
   const [datasets, setDatasets] = useState<LocalDataset[]>([]);
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<DatasetCatalog | null>(null);
   const [jobs, setJobs] = useState<LocalJob[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -132,6 +133,26 @@ export default function AppLayout() {
       clearInterval(jobsInterval);
     };
   }, [jobs]);
+
+  useEffect(() => {
+    if (activeDataset && connectorStatus === 'connected') {
+      loadCatalog();
+    } else {
+      setCatalog(null);
+    }
+  }, [activeDataset, connectorStatus]);
+
+  const loadCatalog = async () => {
+    if (!activeDataset) return;
+
+    try {
+      const catalogData = await connectorApi.getDatasetCatalog(activeDataset);
+      setCatalog(catalogData);
+    } catch (error) {
+      console.error('Failed to load catalog:', error);
+      setCatalog(null);
+    }
+  };
 
   const loadReports = () => {
     const savedReports = localStorage.getItem('reports');
@@ -793,6 +814,8 @@ export default function AppLayout() {
                 onTogglePin={handleTogglePin}
                 onShowDatasetSummary={activeDataset ? handleShowDatasetSummary : undefined}
                 activeDataset={activeDataset}
+                datasetName={activeDataset ? datasets.find(d => d.id === activeDataset)?.name : undefined}
+                catalog={catalog}
               />
             </div>
             <div className="w-[500px]">

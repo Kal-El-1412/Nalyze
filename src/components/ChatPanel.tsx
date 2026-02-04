@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, Database } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown } from 'lucide-react';
+import DatasetSummaryCard from './DatasetSummaryCard';
+import { DatasetCatalog } from '../services/connectorApi';
 
 interface Message {
   id: string;
@@ -22,6 +24,8 @@ interface ChatPanelProps {
   onTogglePin?: (messageId: string) => void;
   onShowDatasetSummary?: () => void;
   activeDataset?: string | null;
+  datasetName?: string;
+  catalog?: DatasetCatalog | null;
 }
 
 const quickTemplates = [
@@ -37,7 +41,7 @@ const suggestions = [
   { icon: BarChart3, text: 'Top categories', color: 'text-emerald-600 bg-emerald-50' },
 ];
 
-export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -302,15 +306,13 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
       )}
 
       <div className="p-4 border-t border-slate-200 bg-slate-50">
-        {activeDataset && onShowDatasetSummary && (
+        {activeDataset && catalog && datasetName && onShowDatasetSummary && (
           <div className="mb-3">
-            <button
-              onClick={onShowDatasetSummary}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-colors"
-            >
-              <Database className="w-3.5 h-3.5 text-slate-600" />
-              <span className="text-slate-700 font-medium">View Dataset Schema</span>
-            </button>
+            <DatasetSummaryCard
+              catalog={catalog}
+              datasetName={datasetName}
+              onViewSchema={onShowDatasetSummary}
+            />
           </div>
         )}
         <div className="flex gap-2 relative">
