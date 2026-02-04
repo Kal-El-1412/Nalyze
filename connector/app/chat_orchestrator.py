@@ -323,24 +323,60 @@ class ChatOrchestrator:
 
         elif analysis_type == "outliers":
             if working_catalog:
-                metric_col = self._detect_metric_column(working_catalog)
-                if metric_col:
-                    queries.append({
-                        "name": "outlier_analysis",
-                        "sql": f'''SELECT
-                            "{metric_col}",
-                            AVG("{metric_col}") as avg_value,
-                            STDDEV("{metric_col}") as stddev_value,
-                            MIN("{metric_col}") as min_value,
-                            MAX("{metric_col}") as max_value,
-                            COUNT(*) as total_count
-                        FROM data'''
-                    })
-                    queries.append({
-                        "name": "extreme_values",
-                        "sql": f'SELECT "{metric_col}", COUNT(*) as count FROM data GROUP BY "{metric_col}" ORDER BY "{metric_col}" DESC LIMIT 20'
-                    })
-                    explanation = f"I'll analyze {metric_col} for outliers and extreme values for the {time_period} period."
+                numeric_cols = self._detect_all_numeric_columns(working_catalog)
+                if numeric_cols:
+                    if safe_mode:
+                        # Safe mode: return aggregated outlier counts per column
+                        count_selects = []
+                        for col in numeric_cols[:10]:  # Limit to 10 columns
+                            count_selects.append(f"""
+                                SELECT
+                                    '{col}' as column_name,
+                                    COUNT(*) as outlier_count,
+                                    AVG("{col}") as mean_value,
+                                    STDDEV("{col}") as stddev_value,
+                                    MIN("{col}") as min_value,
+                                    MAX("{col}") as max_value
+                                FROM data
+                                WHERE "{col}" IS NOT NULL
+                                  AND ABS("{col}" - (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL))
+                                      > 2 * (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL)
+                            """)
+
+                        union_sql = " UNION ALL ".join(count_selects)
+                        queries.append({
+                            "name": "outlier_summary",
+                            "sql": union_sql
+                        })
+                        explanation = f"I'll analyze outliers (>2 std dev) across {len(numeric_cols)} numeric columns for the {time_period} period. Safe mode: showing aggregated counts only."
+
+                    else:
+                        # Regular mode: return individual outlier rows
+                        # Use UNION ALL to combine outliers from all columns
+                        outlier_selects = []
+                        for col in numeric_cols[:10]:  # Limit to 10 columns
+                            outlier_selects.append(f"""
+                                SELECT
+                                    '{col}' as column_name,
+                                    "{col}" as value,
+                                    (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL) as mean_value,
+                                    (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL) as stddev_value,
+                                    ("{col}" - (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL))
+                                        / (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL) as z_score,
+                                    ROW_NUMBER() OVER () as row_index
+                                FROM data
+                                WHERE "{col}" IS NOT NULL
+                                  AND ABS("{col}" - (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL))
+                                      > 2 * (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL)
+                                LIMIT 50
+                            """)
+
+                        union_sql = " UNION ALL ".join(outlier_selects)
+                        queries.append({
+                            "name": "outliers_detected",
+                            "sql": union_sql
+                        })
+                        explanation = f"I'll detect outliers beyond 2 standard deviations across {len(numeric_cols)} numeric columns for the {time_period} period."
                 else:
                     queries.append({
                         "name": "row_count",
@@ -453,28 +489,45 @@ class ChatOrchestrator:
                     ))
 
                 elif analysis_type == "outliers":
-                    if result.name == "outlier_analysis":
-                        # Extract statistics
-                        if result.rows and len(result.rows) > 0:
-                            row = result.rows[0]
-                            avg = row[1] if len(row) > 1 else None
-                            stddev = row[2] if len(row) > 2 else None
-                            min_val = row[3] if len(row) > 3 else None
-                            max_val = row[4] if len(row) > 4 else None
+                    if result.name == "outlier_summary":
+                        # Safe mode: aggregated outlier counts
+                        message_parts.append(f"\n**Outlier Summary (Safe Mode - Aggregated Counts):**")
+                        if result.rows:
+                            total_outliers = sum(row[1] for row in result.rows if len(row) > 1 and row[1])
+                            cols_with_outliers = sum(1 for row in result.rows if len(row) > 1 and row[1] and row[1] > 0)
+                            message_parts.append(f"- Total outliers detected: {total_outliers:,}")
+                            message_parts.append(f"- Columns with outliers: {cols_with_outliers}")
+                            message_parts.append(f"- Detection threshold: >2 standard deviations from mean")
 
-                            message_parts.append(f"\n**Outlier Analysis:**")
-                            if avg is not None:
-                                message_parts.append(f"- Average: {avg:.2f}")
-                            if stddev is not None:
-                                message_parts.append(f"- Standard Deviation: {stddev:.2f}")
-                            if min_val is not None and max_val is not None:
-                                message_parts.append(f"- Range: {min_val:.2f} to {max_val:.2f}")
+                        tables.append(TableData(
+                            title="Outlier Summary by Column",
+                            columns=result.columns,
+                            rows=result.rows
+                        ))
 
-                    tables.append(TableData(
-                        title=result.name.replace("_", " ").title(),
-                        columns=result.columns,
-                        rows=result.rows
-                    ))
+                    elif result.name == "outliers_detected":
+                        # Regular mode: individual outlier rows
+                        message_parts.append(f"\n**Outliers Detected (>2 Std Dev):**")
+                        if result.rows:
+                            outlier_count = len(result.rows)
+                            unique_columns = len(set(row[0] for row in result.rows if len(row) > 0))
+                            message_parts.append(f"- Total outlier values: {outlier_count}")
+                            message_parts.append(f"- Columns analyzed: {unique_columns}")
+                            message_parts.append(f"- Showing detailed outlier rows with z-scores")
+
+                        tables.append(TableData(
+                            title="Outlier Details",
+                            columns=result.columns,
+                            rows=result.rows[:200]  # Limit display to 200 rows
+                        ))
+
+                    else:
+                        # Fallback for any other outlier-related results
+                        tables.append(TableData(
+                            title=result.name.replace("_", " ").title(),
+                            columns=result.columns,
+                            rows=result.rows
+                        ))
 
                 elif analysis_type == "data_quality":
                     if result.name == "null_counts":
@@ -578,6 +631,27 @@ class ChatOrchestrator:
                     return col.name
 
         return None
+
+    def _detect_all_numeric_columns(self, catalog: Any) -> list:
+        """Detect all numeric columns from catalog, excluding ID columns"""
+        if not catalog:
+            return []
+
+        numeric_cols = []
+
+        if catalog.detectedNumericColumns and len(catalog.detectedNumericColumns) > 0:
+            for col_name in catalog.detectedNumericColumns:
+                if "id" not in col_name.lower():
+                    numeric_cols.append(col_name)
+            return numeric_cols
+
+        for col in catalog.columns:
+            col_type = col.type.upper()
+            if col_type in ["INTEGER", "BIGINT", "DOUBLE", "FLOAT", "DECIMAL", "NUMERIC"]:
+                if "id" not in col.name.lower():
+                    numeric_cols.append(col.name)
+
+        return numeric_cols
 
     async def _call_openai(
         self, request: ChatOrchestratorRequest, catalog: Any
