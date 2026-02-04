@@ -1,8 +1,8 @@
 # Implementation Summary
 
-## Three-Prompt Enhancement Complete
+## Four-Prompt Enhancement Complete
 
-This document summarizes the three-part enhancement to the `/chat` endpoint.
+This document summarizes the four-part enhancement to the `/chat` endpoint.
 
 ---
 
@@ -181,6 +181,65 @@ async def handle_message(request: ChatOrchestratorRequest):
 
 ---
 
+---
+
+## Prompt 4: Disable LLM-Driven Clarifications ✅
+
+### Objective
+Prevent LLM from asking clarification questions. All clarifications must come from backend state checks.
+
+### Implementation
+
+**Updated `SYSTEM_PROMPT` in `app/chat_orchestrator.py`:**
+
+Complete removal of clarification capabilities:
+- Added "NEVER ask clarifying questions" to responsibilities
+- Added critical section forbidding needs_clarification
+- Removed needs_clarification response type from examples
+- Changed "Common Scenarios" to "Handling Ambiguity"
+- Updated examples to show assumptions, not questions
+
+**Key prompt sections:**
+```
+## CRITICAL: No Clarification Questions
+- DO NOT ask the user for clarification
+- DO NOT use the "needs_clarification" response type
+- All required context is provided by the backend
+- Make reasonable assumptions based on schema
+
+## Handling Ambiguity
+- Use the first detected date column or most logical one
+- Analyze all relevant numeric columns
+- Make reasonable assumptions based on schema
+```
+
+**Updated `_parse_response()` to reject LLM clarifications:**
+```python
+if response_type == "needs_clarification":
+    logger.error(f"LLM attempted to ask clarification question")
+    raise ValueError("LLM attempted to ask a clarification question")
+```
+
+**Created `_build_context_info()` method:**
+Passes conversation state to LLM as "User Preferences":
+- analysis_type
+- time_period
+- metric
+- dimension
+- grouping
+- Any other context fields
+
+**Flow:**
+- Backend checks required fields (Prompt 3)
+- Backend asks clarifications if needed
+- LLM receives full context in "User Preferences" section
+- LLM generates queries without asking questions
+
+### Tests
+- `test_llm_no_clarification.py` - 6/6 tests passing
+
+---
+
 ## Tests Created
 
 1. **`test_state.py`** - State manager tests (10/10 ✓)
@@ -188,6 +247,7 @@ async def handle_message(request: ChatOrchestratorRequest):
 3. **`test_intent_chat.py`** - Intent validation
 4. **`test_clarification_flow.py`** - Flow demonstration
 5. **`test_logic_flow.py`** - Logic tests (6/6 ✓)
+6. **`test_llm_no_clarification.py`** - LLM clarification prevention (6/6 ✓)
 
 ---
 
@@ -210,6 +270,12 @@ async def handle_message(request: ChatOrchestratorRequest):
 ✅ Selecting option never repeats same question
 ✅ No LLM calls during clarification
 ✅ LLM only called when required fields present
+
+### Prompt 4: Disable LLM Clarifications
+✅ LLM responses never contain questions
+✅ All questions originate from backend logic
+✅ LLM has full context from conversation state
+✅ LLM makes assumptions instead of asking
 
 ---
 
@@ -281,9 +347,10 @@ POST /chat { message: "Compare sales by region" }
 1. ✅ State manager implemented
 2. ✅ Intent-based requests supported
 3. ✅ Deterministic clarifications added
-4. 🔲 Frontend integration (update ChatPanel to handle new response types)
-5. 🔲 Add more optional intents (metric, dimension, filter)
-6. 🔲 Persist state to database (optional upgrade from in-memory)
+4. ✅ LLM clarifications disabled
+5. 🔲 Frontend integration (update ChatPanel to handle new response types)
+6. 🔲 Add more optional intents (metric, dimension, filter)
+7. 🔲 Persist state to database (optional upgrade from in-memory)
 
 ---
 
@@ -295,14 +362,17 @@ All tests pass with ✓ PASS status:
 cd connector
 
 # State manager (Prompt 1)
-python test_state.py           # 10/10 tests ✓
+python test_state.py                    # 10/10 tests ✓
 
 # Contract structure (Prompt 2)
-python test_contract.py        # Structure verified ✓
+python test_contract.py                 # Structure verified ✓
 
 # Clarification flow (Prompt 3)
-python test_clarification_flow.py  # Flow demonstrated ✓
-python test_logic_flow.py      # 6/6 logic tests ✓
+python test_clarification_flow.py       # Flow demonstrated ✓
+python test_logic_flow.py               # 6/6 logic tests ✓
+
+# LLM clarification prevention (Prompt 4)
+python test_llm_no_clarification.py     # 6/6 tests ✓
 ```
 
 ---
@@ -318,9 +388,10 @@ python test_logic_flow.py      # 6/6 logic tests ✓
 
 ## Summary
 
-Three prompts, three capabilities:
+Four prompts, four capabilities:
 1. **State persistence** - Remember context across conversation
 2. **Intent-based updates** - Direct state control without LLM
 3. **Deterministic clarifications** - Required fields enforced upfront
+4. **LLM clarification prevention** - All questions from backend, never from LLM
 
-Result: Faster, cheaper, more predictable chat API with better UX.
+Result: Faster, cheaper, more predictable chat API with perfect separation of concerns. Backend handles clarifications deterministically, LLM handles analysis with full context.

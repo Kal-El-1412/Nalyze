@@ -6,6 +6,7 @@ from openai import OpenAI
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
 from app.sql_validator import sql_validator
+from app.state import state_manager
 from app.models import (
     ChatOrchestratorRequest,
     NeedsClarificationResponse,
@@ -22,9 +23,16 @@ SYSTEM_PROMPT = """You are a privacy-first data analysis assistant that helps us
 
 ## Your Responsibilities
 - Analyze user questions and generate safe DuckDB SQL queries
-- Ask clarifying questions when needed
 - Summarize query results in clear, user-friendly language
 - NEVER expose raw data rows unless explicitly aggregated
+- NEVER ask clarifying questions - all context is provided by the backend
+
+## CRITICAL: No Clarification Questions
+- DO NOT ask the user for clarification
+- DO NOT use the "needs_clarification" response type
+- All required context (analysis type, time period, etc.) is provided by the backend
+- You have all the information needed to generate queries
+- If something seems ambiguous, make reasonable assumptions based on schema
 
 ## Data Privacy Rules (CRITICAL)
 - You receive ONLY schema and statistics, never raw row data
@@ -42,19 +50,13 @@ SYSTEM_PROMPT = """You are a privacy-first data analysis assistant that helps us
 6. For date analysis: Use DATE_TRUNC('month', column_name) or similar
 7. Always validate column names against the schema provided
 8. Use double quotes for column names with spaces or special characters
+9. If multiple date columns exist, use the first detected date column
+10. If multiple numeric columns exist, analyze all relevant ones
 
 ## Response Format
 You must respond with valid JSON matching one of these types:
 
-### 1. needs_clarification
-When you need more information from the user:
-{
-  "type": "needs_clarification",
-  "question": "Which column contains the date information?",
-  "choices": ["order_date", "created_at", "timestamp"]
-}
-
-### 2. run_queries
+### 1. run_queries
 When you can generate SQL to answer the question:
 {
   "type": "run_queries",
@@ -67,7 +69,7 @@ When you can generate SQL to answer the question:
   "explanation": "I'll analyze your monthly trends by grouping orders by month and calculating the total count and revenue."
 }
 
-### 3. final_answer
+### 2. final_answer
 When you have results to summarize:
 {
   "type": "final_answer",
@@ -81,15 +83,20 @@ When you have results to summarize:
   ]
 }
 
-## Common Scenarios
+## Handling Ambiguity
 
-**Ambiguous Date/Time Questions:**
-- If user asks "show trends" but multiple date columns exist, ask which one
-- If no date column exists, ask which column represents time
+**Multiple Date Columns:**
+- Use the first detected date column or the most logical one for the question
+- If user says "trends", assume they want time-based analysis with that column
 
-**Ambiguous Metrics:**
-- If user asks "what's trending" without specifying a metric, ask what to measure
-- Suggest available numeric columns
+**Multiple Metrics:**
+- If user asks "what's trending", analyze all relevant numeric columns
+- Show the most important metrics first
+
+**Vague Requests:**
+- "Show me the data" → Generate summary statistics (COUNT, SUM, AVG, MIN, MAX)
+- "Analyze this" → Show key metrics and trends
+- Make reasonable assumptions based on schema and column names
 
 **Complex Analysis:**
 - Break into multiple queries if needed (max 3)
@@ -104,20 +111,26 @@ Response:
   "type": "run_queries",
   "queries": [{
     "name": "monthly_sales",
-    "sql": "SELECT DATE_TRUNC('month', sale_date) as month, COUNT(*) as transaction_count, SUM(amount) as total_sales FROM data GROUP BY month ORDER BY month LIMIT 1000"
+    "sql": "SELECT DATE_TRUNC('month', sale_date) as month, COUNT(*) as transaction_count, SUM(amount) as total_sales FROM data GROUP BY month ORDER BY month LIMIT 1000",
+    "reasoning": "Monthly aggregation of sales data"
   }],
   "explanation": "I'll show you the monthly sales totals and transaction counts."
 }
 
 User: "Show me the data"
+Schema: columns include "order_date" (date), "amount" (numeric), "status" (text)
 Response:
 {
-  "type": "needs_clarification",
-  "question": "What would you like to see? I can show you summary statistics, trends over time, or answer specific questions about the data.",
-  "choices": ["Summary statistics", "Time-based trends", "Top categories"]
+  "type": "run_queries",
+  "queries": [{
+    "name": "data_summary",
+    "sql": "SELECT COUNT(*) as total_orders, SUM(amount) as total_revenue, COUNT(DISTINCT status) as unique_statuses, MIN(order_date) as earliest_date, MAX(order_date) as latest_date FROM data LIMIT 1",
+    "reasoning": "Summary statistics for dataset overview"
+  }],
+  "explanation": "I'll show you a summary of your data including total orders, revenue, and date range."
 }
 
-Remember: You are helping users understand their data safely and privately. Always aggregate, never expose raw rows."""
+Remember: You are helping users understand their data safely and privately. Always aggregate, never expose raw rows. NEVER ask clarification questions - make informed decisions based on the schema."""
 
 
 class ChatOrchestrator:
@@ -207,6 +220,16 @@ class ChatOrchestrator:
     def _build_messages(self, request: ChatOrchestratorRequest, catalog: Any) -> list:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
+        # Add conversation state context
+        state = state_manager.get_state(request.conversationId)
+        context = state.get("context", {})
+        if context:
+            context_info = self._build_context_info(context)
+            messages.append({
+                "role": "system",
+                "content": f"User Preferences:\n{context_info}"
+            })
+
         catalog_info = self._build_catalog_context(catalog)
         messages.append({
             "role": "system",
@@ -226,6 +249,32 @@ class ChatOrchestrator:
         })
 
         return messages
+
+    def _build_context_info(self, context: Dict[str, Any]) -> str:
+        """Build a summary of user preferences from conversation state"""
+        lines = []
+
+        if "analysis_type" in context:
+            lines.append(f"Analysis Type: {context['analysis_type']}")
+
+        if "time_period" in context:
+            lines.append(f"Time Period: {context['time_period']}")
+
+        if "metric" in context:
+            lines.append(f"Preferred Metric: {context['metric']}")
+
+        if "dimension" in context:
+            lines.append(f"Dimension: {context['dimension']}")
+
+        if "grouping" in context:
+            lines.append(f"Grouping: {context['grouping']}")
+
+        # Add any other context fields
+        for key, value in context.items():
+            if key not in ["analysis_type", "time_period", "metric", "dimension", "grouping"]:
+                lines.append(f"{key.replace('_', ' ').title()}: {value}")
+
+        return "\n".join(lines) if lines else "No specific preferences set"
 
     def _build_catalog_context(self, catalog: Any) -> str:
         lines = [
@@ -293,10 +342,12 @@ class ChatOrchestrator:
         response_type = response_data.get("type")
 
         if response_type == "needs_clarification":
-            return NeedsClarificationResponse(
-                question=response_data.get("question", "Could you clarify?"),
-                choices=response_data.get("choices", []),
-                audit=AuditInfo(sharedWithAI=["schema", "aggregates_only"])
+            # LLM should NEVER ask for clarification - this is a prompt violation
+            logger.error(f"LLM attempted to ask clarification question: {response_data.get('question')}")
+            raise ValueError(
+                "LLM attempted to ask a clarification question. "
+                "All clarifications should be handled by backend state checks. "
+                "This indicates the LLM prompt needs updating or the LLM is not following instructions."
             )
 
         elif response_type == "run_queries":

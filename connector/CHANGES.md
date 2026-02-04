@@ -222,11 +222,52 @@ async def handle_message(request: ChatOrchestratorRequest):
 - No LLM overhead until ready
 - Guaranteed context for analysis
 
+### 6. Disable LLM-Driven Clarifications (Prompt 4)
+
+**Updated `SYSTEM_PROMPT` in `app/chat_orchestrator.py`:**
+
+Removed all LLM clarification capabilities:
+- Removed "Ask clarifying questions when needed" from responsibilities
+- Removed entire "needs_clarification" response type section
+- Removed examples showing LLM asking questions
+- Changed "Common Scenarios" to "Handling Ambiguity" with assumption guidelines
+- Added explicit instructions: "NEVER ask clarification questions"
+- Updated examples to show only run_queries and final_answer
+
+**Key prompt additions:**
+```
+## CRITICAL: No Clarification Questions
+- DO NOT ask the user for clarification
+- DO NOT use the "needs_clarification" response type
+- All required context is provided by the backend
+- Make reasonable assumptions based on schema
+```
+
+**Updated `_parse_response()` to reject LLM clarifications:**
+```python
+if response_type == "needs_clarification":
+    raise ValueError(
+        "LLM attempted to ask a clarification question. "
+        "All clarifications should be handled by backend state checks."
+    )
+```
+
+**Added conversation state to LLM messages:**
+- Created `_build_context_info()` method
+- Passes analysis_type, time_period, and other context to LLM
+- LLM receives "User Preferences" section with all state
+
+**Benefits:**
+- LLM never asks clarification questions
+- All clarifications from backend (Prompt 3)
+- LLM has full context to make informed decisions
+- Clear separation: backend handles clarifications, LLM handles analysis
+
 ## Files Modified
 
 1. `/connector/app/models.py` - Updated models (Prompt 2)
 2. `/connector/app/main.py` - Updated endpoint + added handlers + clarification checks (Prompts 2 & 3)
-3. `/connector/app/chat_orchestrator.py` - Added message validation (Prompt 2)
+3. `/connector/app/chat_orchestrator.py` - Message validation (Prompt 2), LLM prompt updates (Prompt 4), state context (Prompt 4)
 4. `/connector/app/state.py` - New state manager (Prompt 1)
 
 ## Acceptance Criteria
@@ -248,3 +289,9 @@ async def handle_message(request: ChatOrchestratorRequest):
 ✅ Selecting an option never repeats the same question
 ✅ No LLM calls during clarification flow
 ✅ LLM only called when required fields present
+
+### Prompt 4: Disable LLM Clarifications
+✅ LLM responses never contain questions
+✅ All questions originate from backend logic
+✅ LLM has full context from conversation state
+✅ LLM makes assumptions instead of asking
