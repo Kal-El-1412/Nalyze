@@ -721,6 +721,35 @@ To run in development mode with auto-reload:
 uvicorn app.main:app --reload --port 7337
 ```
 
+### Testing Chat Endpoint (Middleware Fix Verification)
+
+The `/chat` endpoint uses special middleware that extracts the `conversationId` from the request body for correlation logging. This requires careful ASGI message handling to avoid "Unexpected message received" errors.
+
+**Test the chat endpoint:**
+```bash
+# Should return 200 or 400 (OpenAI key validation), NOT 500
+curl -i -X POST http://localhost:7337/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "datasetId": "test-dataset-id",
+    "conversationId": "test-conversation-1",
+    "message": "Show me the data"
+  }'
+```
+
+**Expected behaviors:**
+- ✅ Returns 200 with clarification response (if dataset exists)
+- ✅ Returns 400 with clear error message (if OpenAI key missing or dataset not found)
+- ❌ Should **NOT** return 500 with "Unexpected message received: http.request"
+
+**What the middleware does:**
+1. Reads the request body to extract `conversationId`
+2. Sets it as the correlation ID for request tracing
+3. Replays the body exactly once to the downstream handler
+4. All subsequent receive calls delegate to the original receiver
+
+This ensures proper ASGI message flow while maintaining request logging capabilities.
+
 ## Troubleshooting
 
 ### Connection refused

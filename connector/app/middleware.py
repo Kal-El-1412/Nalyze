@@ -24,18 +24,22 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         if request.method == "POST" and request.url.path == "/chat":
             try:
-                body = await request.body()
+                original_receive = request._receive
+                body_bytes = await request.body()
                 import json
-                body_data = json.loads(body) if body else {}
+                body_data = json.loads(body_bytes) if body_bytes else {}
                 conversation_id = body_data.get("conversationId")
                 if conversation_id:
                     correlation_id = conversation_id
                     request.state.correlation_id = correlation_id
 
-                from starlette.requests import Request as StarletteRequest
-
+                has_replayed = False
                 async def receive():
-                    return {"type": "http.request", "body": body}
+                    nonlocal has_replayed
+                    if not has_replayed:
+                        has_replayed = True
+                        return {"type": "http.request", "body": body_bytes, "more_body": False}
+                    return await original_receive()
 
                 request._receive = receive
             except Exception as e:
