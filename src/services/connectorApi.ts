@@ -51,6 +51,7 @@ export interface ChatRequest {
   value?: any;
   privacyMode?: boolean;
   safeMode?: boolean;
+  aiAssist?: boolean;
   resultsContext?: {
     results: QueryResult[];
   };
@@ -221,12 +222,19 @@ class ConnectorAPI {
     return false;
   }
 
+  private getAiAssist(): boolean {
+    const saved = localStorage.getItem('aiAssist');
+    return saved === 'true';
+  }
+
   private getPrivacyHeaders(): Record<string, string> {
     const privacyMode = this.getPrivacyMode();
     const safeMode = this.getSafeMode();
+    const aiAssist = this.getAiAssist();
     return {
       'X-Privacy-Mode': privacyMode ? 'on' : 'off',
       'X-Safe-Mode': safeMode ? 'on' : 'off',
+      'X-AI-Assist': aiAssist ? 'on' : 'off',
     };
   }
 
@@ -504,10 +512,12 @@ class ConnectorAPI {
     try {
       const privacyMode = this.getPrivacyMode();
       const safeMode = this.getSafeMode();
+      const aiAssist = this.getAiAssist();
       const requestWithPrivacy = {
         ...request,
         privacyMode,
         safeMode,
+        aiAssist,
       };
 
       const response = await fetch(url, {

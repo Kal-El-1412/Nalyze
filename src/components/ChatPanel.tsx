@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check, Shield } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check, Shield, Sparkles } from 'lucide-react';
 import DatasetSummaryCard from './DatasetSummaryCard';
 import { DatasetCatalog } from '../services/connectorApi';
 import { saveDatasetDefault, inferDefaultKeyFromQuestion } from '../utils/datasetDefaults';
@@ -157,6 +157,10 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
   const [showTemplates, setShowTemplates] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [saveAsDefaultMap, setSaveAsDefaultMap] = useState<Record<string, boolean>>({});
+  const [aiAssist, setAiAssist] = useState(() => {
+    const saved = localStorage.getItem('aiAssist');
+    return saved === 'true';
+  });
   const templatesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -174,6 +178,12 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const toggleAiAssist = () => {
+    const newValue = !aiAssist;
+    setAiAssist(newValue);
+    localStorage.setItem('aiAssist', String(newValue));
+  };
 
   const handleSend = () => {
     if (input.trim()) {
@@ -560,6 +570,25 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             placeholder="Ask a question about your data..."
             className="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
           />
+          <button
+            onClick={toggleAiAssist}
+            className={`flex items-center gap-2 px-4 py-3 rounded-lg border transition-all duration-200 ${
+              aiAssist
+                ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-violet-600 shadow-md'
+                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+            }`}
+            title={`AI Assist: ${aiAssist ? 'ON' : 'OFF'}`}
+          >
+            <Sparkles className={`w-4 h-4 ${aiAssist ? 'animate-pulse' : ''}`} />
+            <span className="text-sm font-medium">AI Assist</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+              aiAssist
+                ? 'bg-white/20'
+                : 'bg-slate-100'
+            }`}>
+              {aiAssist ? 'ON' : 'OFF'}
+            </span>
+          </button>
           <button
             onClick={handleSend}
             disabled={!input.trim()}
