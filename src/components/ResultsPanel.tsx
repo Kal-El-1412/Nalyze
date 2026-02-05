@@ -101,19 +101,25 @@ export default function ResultsPanel({
 
     const tableTitle = table.title || table.name;
 
+    const truncateCell = (value: any, maxLength: number = 100) => {
+      const str = String(value ?? '');
+      if (str.length <= maxLength) return str;
+      return str.slice(0, maxLength) + '...';
+    };
+
     return (
       <div key={index} className="mb-6 last:mb-0">
         {tableTitle && (
-          <h3 className="text-lg font-semibold text-slate-900 mb-3">{tableTitle}</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-3 px-1">{tableTitle}</h3>
         )}
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="overflow-auto rounded-lg border border-slate-200 max-h-[500px]">
           <table className="w-full border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50">
                 {table.columns.map((col, idx) => (
                   <th
                     key={idx}
-                    className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200"
+                    className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200 whitespace-nowrap"
                   >
                     {col}
                   </th>
@@ -126,11 +132,21 @@ export default function ResultsPanel({
                   key={rowIdx}
                   className="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                 >
-                  {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="px-4 py-3 text-sm text-slate-700">
-                      {cell}
-                    </td>
-                  ))}
+                  {row.map((cell, cellIdx) => {
+                    const cellValue = cell ?? '';
+                    const displayValue = truncateCell(cellValue);
+                    const isTruncated = String(cellValue).length > 100;
+
+                    return (
+                      <td
+                        key={cellIdx}
+                        className="px-4 py-3 text-sm text-slate-700 max-w-xs"
+                        title={isTruncated ? String(cellValue) : undefined}
+                      >
+                        {displayValue}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -143,15 +159,21 @@ export default function ResultsPanel({
   const renderOldFormatTable = (data: any[]) => {
     if (data.length === 0) return null;
 
+    const truncateCell = (value: any, maxLength: number = 100) => {
+      const str = String(value ?? '');
+      if (str.length <= maxLength) return str;
+      return str.slice(0, maxLength) + '...';
+    };
+
     return (
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-auto rounded-lg border border-slate-200 max-h-[500px]">
         <table className="w-full border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50">
               {Object.keys(data[0]).map((key) => (
                 <th
                   key={key}
-                  className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200"
+                  className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200 whitespace-nowrap"
                 >
                   {key}
                 </th>
@@ -164,11 +186,21 @@ export default function ResultsPanel({
                 key={idx}
                 className="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
               >
-                {Object.values(row).map((value: any, cellIdx) => (
-                  <td key={cellIdx} className="px-4 py-3 text-sm text-slate-700">
-                    {value}
-                  </td>
-                ))}
+                {Object.values(row).map((value: any, cellIdx) => {
+                  const cellValue = value ?? '';
+                  const displayValue = truncateCell(cellValue);
+                  const isTruncated = String(cellValue).length > 100;
+
+                  return (
+                    <td
+                      key={cellIdx}
+                      className="px-4 py-3 text-sm text-slate-700 max-w-xs"
+                      title={isTruncated ? String(cellValue) : undefined}
+                    >
+                      {displayValue}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -277,8 +309,8 @@ export default function ResultsPanel({
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
                   <Table className="w-8 h-8 text-slate-400" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">No tables yet</h3>
-                <p className="text-sm text-slate-500">Query results will appear here</p>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">No tables returned for this analysis</h3>
+                <p className="text-sm text-slate-500">Ask a different question to see tabular results</p>
               </div>
             )}
           </div>
