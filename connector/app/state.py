@@ -132,6 +132,39 @@ class ConversationStateManager:
                 "conversations": list(self._states.keys())
             }
 
+    def has_asked_clarification(self, conversation_id: str, clarification_type: str) -> bool:
+        """
+        Check if a specific clarification has already been asked in this conversation.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            clarification_type: Type of clarification (e.g., 'set_analysis_type', 'set_time_period')
+
+        Returns:
+            True if this clarification has been asked before, False otherwise
+        """
+        state = self.get_state(conversation_id)
+        clarifications_asked = state.get("context", {}).get("clarifications_asked", [])
+        return clarification_type in clarifications_asked
+
+    def mark_clarification_asked(self, conversation_id: str, clarification_type: str):
+        """
+        Mark a specific clarification as asked for this conversation.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            clarification_type: Type of clarification (e.g., 'set_analysis_type', 'set_time_period')
+        """
+        state = self.get_state(conversation_id)
+        context = state.get("context", {})
+        clarifications_asked = context.get("clarifications_asked", [])
+
+        if clarification_type not in clarifications_asked:
+            clarifications_asked.append(clarification_type)
+            context["clarifications_asked"] = clarifications_asked
+            self.update_state(conversation_id, context=context)
+            logger.info(f"Marked clarification '{clarification_type}' as asked for {conversation_id}")
+
     def _create_default_state(self, conversation_id: str) -> Dict[str, Any]:
         """
         Create default state structure for a new conversation.
@@ -150,7 +183,9 @@ class ConversationStateManager:
             "message_count": 0,
             "created_at": datetime.utcnow().isoformat(),
             "last_updated": datetime.utcnow().isoformat(),
-            "context": {},
+            "context": {
+                "clarifications_asked": []  # Track which clarifications have been asked
+            },
             "metadata": {}
         }
 

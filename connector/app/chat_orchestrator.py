@@ -298,6 +298,18 @@ class ChatOrchestrator:
             else:
                 # State not ready, need clarification (probably time_period)
                 logger.info("State not ready after deterministic routing - requesting clarification")
+
+                # Check if we've already asked for time_period
+                if state_manager.has_asked_clarification(request.conversationId, "set_time_period"):
+                    logger.warning("Already asked for time_period - not asking again")
+                    # Return a helpful message instead
+                    return FinalAnswerResponse(
+                        message="I need a time period to analyze the data, but it seems you haven't provided one yet. Please specify a time period like 'last week' or 'last month' in your message."
+                    )
+
+                # Mark that we're asking for time_period
+                state_manager.mark_clarification_asked(request.conversationId, "set_time_period")
+
                 return NeedsClarificationResponse(
                     question="What time period would you like to analyze?",
                     choices=["Last week", "Last month", "Last quarter", "Last year"],
@@ -312,22 +324,16 @@ class ChatOrchestrator:
             logger.info("AI Assist is OFF - asking user to choose analysis type")
 
             # Check if we've already asked for analysis type in this conversation
-            # (to avoid asking repeatedly)
-            state = state_manager.get_state(request.conversationId)
-            context = state.get("context", {})
-
-            if context.get("clarification_asked"):
+            if state_manager.has_asked_clarification(request.conversationId, "set_analysis_type"):
+                logger.warning("Already asked for analysis_type - not asking again")
                 # We already asked once, return helpful message
                 return FinalAnswerResponse(
                     message="I'm not sure how to help with that. Try asking about trends, categories, outliers, row counts, or data quality. Or enable AI Assist for more flexible queries.",
                     tables=None
                 )
 
-            # Ask for analysis type clarification
-            state_manager.update_context(
-                request.conversationId,
-                {"clarification_asked": True}
-            )
+            # Mark that we're asking for analysis_type
+            state_manager.mark_clarification_asked(request.conversationId, "set_analysis_type")
 
             return NeedsClarificationResponse(
                 question="What would you like to analyze?",
@@ -408,6 +414,18 @@ class ChatOrchestrator:
             else:
                 # State not ready, need clarification (probably time_period)
                 logger.info("State not ready after intent extraction - requesting clarification")
+
+                # Check if we've already asked for time_period
+                if state_manager.has_asked_clarification(request.conversationId, "set_time_period"):
+                    logger.warning("Already asked for time_period - not asking again")
+                    # Return a helpful message instead
+                    return FinalAnswerResponse(
+                        message="I need a time period to analyze the data, but it seems you haven't provided one yet. Please specify a time period like 'last week' or 'last month' in your message."
+                    )
+
+                # Mark that we're asking for time_period
+                state_manager.mark_clarification_asked(request.conversationId, "set_time_period")
+
                 return NeedsClarificationResponse(
                     question="What time period would you like to analyze?",
                     choices=["Last week", "Last month", "Last quarter", "Last year"],

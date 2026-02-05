@@ -106,6 +106,7 @@ class NeedsClarificationResponse(BaseModel):
     question: str
     choices: List[str]
     intent: Optional[str] = None
+    allowFreeText: bool = False
     audit: AuditInfo = Field(default_factory=AuditInfo)
 
 
