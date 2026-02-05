@@ -851,10 +851,12 @@ class ChatOrchestrator:
         # Build executed queries from results
         executed_queries = []
         for result in results:
+            # Use rowCount from result if available, otherwise use row count from returned rows
+            row_count = result.rowCount if hasattr(result, 'rowCount') and result.rowCount is not None else len(result.rows)
             executed_queries.append(ExecutedQuery(
                 name=result.name,
                 sql="<query executed>",  # SQL not available in results context
-                rowCount=len(result.rows)
+                rowCount=row_count
             ))
 
         audit = await self._create_audit_metadata(request, context, executed_queries)

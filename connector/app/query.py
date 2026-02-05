@@ -199,7 +199,7 @@ class QueryExecutor:
             privacy_mode: Whether to mask PII values in results (default: True)
 
         Returns:
-            List of result dicts with 'name', 'columns', and 'rows' keys
+            List of result dicts with 'name', 'columns', 'rows', and 'rowCount' keys
         """
         catalog = None
         if privacy_mode:
@@ -222,10 +222,34 @@ class QueryExecutor:
                 raise ValueError(f"Query '{name}' has no SQL provided")
 
             try:
+                # Get the full row count first (without limit)
+                conn = await self.get_connection(dataset_id, read_only=True)
+
+                # Validate the SQL
+                is_valid, error_msg = self.validate_sql(sql)
+                if not is_valid:
+                    raise ValueError(error_msg)
+
+                # Count total rows
+                count_sql = f"SELECT COUNT(*) FROM ({sql}) AS count_query"
+                try:
+                    conn.execute(f"SET statement_timeout = '{config.query_timeout_sec}s'")
+                    count_result = conn.execute(count_sql).fetchone()
+                    total_row_count = count_result[0] if count_result else 0
+                except Exception as count_error:
+                    logger.warning(f"Could not get row count for query '{name}': {count_error}")
+                    # If count fails, we'll use the capped result count
+                    total_row_count = None
+
+                # Execute the query with limit to get actual rows
                 result = await self.execute_query(dataset_id, sql, validate=True, apply_limit=True)
 
                 columns = result["columns"]
                 rows = result["rows"]
+
+                # If we couldn't get the count earlier, use the result count
+                if total_row_count is None:
+                    total_row_count = len(rows)
 
                 if privacy_mode and catalog:
                     rows = pii_masker.mask_result_rows(columns, rows, catalog, privacy_mode)
@@ -233,7 +257,8 @@ class QueryExecutor:
                 results.append({
                     "name": name,
                     "columns": columns,
-                    "rows": rows
+                    "rows": rows,
+                    "rowCount": total_row_count
                 })
             except Exception as e:
                 logger.error(f"Error executing query '{name}': {e}")

@@ -71,6 +71,7 @@ class QueryResultContext(BaseModel):
     name: str
     columns: List[str]
     rows: List[List[Any]]
+    rowCount: Optional[int] = None
 
 
 class ResultsContext(BaseModel):
@@ -266,6 +267,7 @@ class QueryResult(BaseModel):
     name: str
     columns: List[str]
     rows: List[List[Any]]
+    rowCount: int
 
 
 class QueryExecuteResponse(BaseModel):

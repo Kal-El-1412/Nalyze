@@ -76,7 +76,9 @@ async def main():
     print("✓ Max 200 rows enforced per query")
     print("\nEndpoint: POST /queries/execute")
     print("Request: { datasetId, queries: [{ name, sql }] }")
-    print("Response: { results: [{ name, columns, rows }] }")
+    print("Response: { results: [{ name, columns, rows, rowCount }] }")
+    print("  - rows: capped at 200 for UI safety")
+    print("  - rowCount: full count of rows (even if rows are capped)")
     print("\n✅ All validations pass!")
 
 

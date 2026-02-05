@@ -41,6 +41,7 @@ export interface QueryResult {
   name: string;
   columns: string[];
   rows: any[][];
+  rowCount: number;
 }
 
 export interface ChatRequest {
@@ -747,6 +748,7 @@ class ConnectorAPI {
             ['2024-05', '68500', '345'],
             ['2024-06', '76700', '378'],
           ],
+          rowCount: 6,
         },
         {
           name: 'Growth Calculation',
@@ -759,6 +761,7 @@ class ConnectorAPI {
             ['2024-05', '68500', '61200'],
             ['2024-06', '76700', '68500'],
           ],
+          rowCount: 6,
         },
       ],
     };
