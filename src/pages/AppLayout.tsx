@@ -69,6 +69,7 @@ export default function AppLayout() {
     summary: '',
     tableData: [] as any[],
     auditLog: [] as string[],
+    auditMetadata: null as any,
   });
 
   const [lastRoutingMetadata, setLastRoutingMetadata] = useState<any>(null);
@@ -656,6 +657,7 @@ export default function AppLayout() {
         summary: response.summaryMarkdown,
         tableData: response.tables,
         auditLog: auditLogEntries,
+        auditMetadata: response.audit,
       });
     }
   };
@@ -950,6 +952,7 @@ export default function AppLayout() {
                 summary={resultsData.summary}
                 tableData={resultsData.tableData}
                 auditLog={resultsData.auditLog}
+                auditMetadata={resultsData.auditMetadata}
                 onExportReport={handleExportReport}
                 onCopySummary={handleCopySummary}
                 hasContent={resultsData.summary !== '' || resultsData.tableData.length > 0}

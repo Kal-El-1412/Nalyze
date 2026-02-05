@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Table, Shield, Download, Copy, CheckCircle } from 'lucide-react';
+import { FileText, Table, Shield, Download, Copy, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { TableSkeleton } from './LoadingSkeleton';
 
 interface TableData {
@@ -9,10 +9,29 @@ interface TableData {
   rows?: any[][];
 }
 
+interface ExecutedQuery {
+  name: string;
+  sql: string;
+  rowCount: number;
+}
+
+interface AuditMetadata {
+  datasetId: string;
+  datasetName: string;
+  analysisType: string;
+  timePeriod: string;
+  aiAssist: boolean;
+  safeMode: boolean;
+  privacyMode: boolean;
+  executedQueries: ExecutedQuery[];
+  generatedAt: string;
+}
+
 interface ResultsPanelProps {
   summary: string;
   tableData: TableData[] | any[];
   auditLog: string[];
+  auditMetadata?: AuditMetadata | null;
   onExportReport?: () => void;
   onCopySummary?: () => void;
   hasContent?: boolean;
@@ -74,6 +93,7 @@ export default function ResultsPanel({
   summary,
   tableData,
   auditLog,
+  auditMetadata,
   onExportReport,
   onCopySummary,
   hasContent = false,
@@ -81,6 +101,7 @@ export default function ResultsPanel({
 }: ResultsPanelProps) {
   const [activeTab, setActiveTab] = useState<'summary' | 'tables' | 'audit'>('summary');
   const [copied, setCopied] = useState(false);
+  const [expandedQueries, setExpandedQueries] = useState<Set<number>>(new Set());
 
   const tabs = [
     { id: 'summary' as const, label: 'Summary', icon: FileText },
@@ -94,6 +115,155 @@ export default function ResultsPanel({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const toggleQueryExpansion = (index: number) => {
+    setExpandedQueries(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  const formatDateTime = (isoString: string): string => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
+  const renderStructuredAudit = () => {
+    if (!auditMetadata) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900 mb-4">Analysis Overview</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase mb-1">Dataset</div>
+              <div className="text-sm text-slate-900 font-medium">{auditMetadata.datasetName}</div>
+              <div className="text-xs text-slate-500 font-mono mt-0.5">{auditMetadata.datasetId}</div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase mb-1">Analysis Type</div>
+              <div className="text-sm text-slate-900">{auditMetadata.analysisType}</div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase mb-1">Time Period</div>
+              <div className="text-sm text-slate-900">{auditMetadata.timePeriod}</div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase mb-1">Generated</div>
+              <div className="text-sm text-slate-900">{formatDateTime(auditMetadata.generatedAt)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900 mb-4">Security & Privacy Settings</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-slate-700">AI Assist</div>
+              </div>
+              <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                auditMetadata.aiAssist
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-200 text-slate-600'
+              }`}>
+                {auditMetadata.aiAssist ? 'ON' : 'OFF'}
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-slate-700">Safe Mode</div>
+              </div>
+              <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                auditMetadata.safeMode
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-200 text-slate-600'
+              }`}>
+                {auditMetadata.safeMode ? 'ON' : 'OFF'}
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-slate-700">Privacy Mode</div>
+              </div>
+              <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                auditMetadata.privacyMode
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-200 text-slate-600'
+              }`}>
+                {auditMetadata.privacyMode ? 'ON' : 'OFF'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900 mb-4">
+            Executed Queries ({auditMetadata.executedQueries.length})
+          </h3>
+          {auditMetadata.privacyMode && (
+            <div className="mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+              Privacy Mode: SQL queries shown below contain no PII values
+            </div>
+          )}
+          <div className="space-y-3">
+            {auditMetadata.executedQueries.map((query, idx) => {
+              const isExpanded = expandedQueries.has(idx);
+              return (
+                <div key={idx} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => toggleQueryExpansion(idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-medium text-slate-900">{query.name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {query.rowCount.toLocaleString()} row{query.rowCount !== 1 ? 's' : ''} returned
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="px-4 pb-4 pt-2 border-t border-slate-200 bg-slate-50">
+                      <div className="text-xs font-medium text-slate-500 uppercase mb-2">SQL Query</div>
+                      <pre className="text-xs font-mono text-slate-800 bg-white p-3 rounded border border-slate-200 overflow-x-auto">
+                        {query.sql}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderNewFormatTable = (table: TableData, index: number) => {
@@ -318,7 +488,9 @@ export default function ResultsPanel({
 
         {activeTab === 'audit' && (
           <div>
-            {auditLog.length > 0 ? (
+            {auditMetadata ? (
+              renderStructuredAudit()
+            ) : auditLog.length > 0 ? (
               <div className="space-y-2">
                 {auditLog.map((entry, idx) => {
                   const isSQL = entry.includes('SQL:');
