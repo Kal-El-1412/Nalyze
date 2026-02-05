@@ -28,17 +28,34 @@ class StorageManager:
         self.jobs_dir.mkdir(exist_ok=True)
 
         if not self.registry_file.exists():
-            self._save_registry({"datasets": {}, "jobs": {}})
+            self._save_registry({"datasets": [], "jobs": {}})
             logger.info("Created new registry file")
 
     def _load_registry(self) -> Dict[str, Any]:
         with self._lock:
             try:
                 with open(self.registry_file, 'r') as f:
-                    return json.load(f)
+                    loaded = json.load(f)
+
+                    # Handle legacy format: if root is a list, wrap it
+                    if isinstance(loaded, list):
+                        logger.info("Converting legacy list format to dict format")
+                        return {"datasets": loaded, "jobs": {}}
+
+                    # Handle legacy format: if datasets is a dict (keyed by ID), convert to list
+                    if isinstance(loaded.get("datasets"), dict):
+                        logger.info("Converting legacy dict format to list format")
+                        datasets_list = list(loaded["datasets"].values())
+                        loaded["datasets"] = datasets_list
+
+                    # Ensure datasets key exists
+                    loaded.setdefault("datasets", [])
+                    loaded.setdefault("jobs", {})
+
+                    return loaded
             except (FileNotFoundError, json.JSONDecodeError) as e:
                 logger.warning(f"Error loading registry, creating new one: {e}")
-                return {"datasets": {}, "jobs": {}}
+                return {"datasets": [], "jobs": {}}
 
     def _save_registry(self, data: Dict[str, Any]):
         with self._lock:
@@ -53,7 +70,8 @@ class StorageManager:
     ) -> Dict[str, Any]:
         registry = self._load_registry()
 
-        for dataset in registry["datasets"].values():
+        # Check if dataset already exists
+        for dataset in registry["datasets"]:
             if dataset["filePath"] == file_path:
                 logger.info(f"Dataset already exists for path: {file_path}")
                 return dataset
@@ -71,7 +89,7 @@ class StorageManager:
             "status": "registered"
         }
 
-        registry["datasets"][dataset_id] = dataset_data
+        registry["datasets"].append(dataset_data)
         self._save_registry(registry)
 
         logger.info(f"Dataset registered: {dataset_id} - {name}")
@@ -79,33 +97,37 @@ class StorageManager:
 
     async def get_dataset(self, dataset_id: str) -> Optional[Dict[str, Any]]:
         registry = self._load_registry()
-        return registry["datasets"].get(dataset_id)
+        for dataset in registry["datasets"]:
+            if dataset["datasetId"] == dataset_id:
+                return dataset
+        return None
 
     async def list_datasets(self) -> List[Dict[str, Any]]:
         registry = self._load_registry()
-        datasets = list(registry["datasets"].values())
+        datasets = registry["datasets"]
         datasets.sort(key=lambda x: x["createdAt"], reverse=True)
         return datasets
 
     async def update_dataset(self, dataset_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         registry = self._load_registry()
 
-        if dataset_id not in registry["datasets"]:
-            return None
+        for dataset in registry["datasets"]:
+            if dataset["datasetId"] == dataset_id:
+                dataset.update(updates)
+                self._save_registry(registry)
+                return dataset
 
-        registry["datasets"][dataset_id].update(updates)
-        self._save_registry(registry)
-
-        return registry["datasets"][dataset_id]
+        return None
 
     async def delete_dataset(self, dataset_id: str) -> bool:
         registry = self._load_registry()
 
-        if dataset_id in registry["datasets"]:
-            del registry["datasets"][dataset_id]
-            self._save_registry(registry)
-            logger.info(f"Dataset deleted: {dataset_id}")
-            return True
+        for i, dataset in enumerate(registry["datasets"]):
+            if dataset["datasetId"] == dataset_id:
+                registry["datasets"].pop(i)
+                self._save_registry(registry)
+                logger.info(f"Dataset deleted: {dataset_id}")
+                return True
 
         return False
 

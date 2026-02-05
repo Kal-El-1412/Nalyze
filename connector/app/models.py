@@ -17,6 +17,7 @@ class DatasetRegisterRequest(BaseModel):
 
 class DatasetRegisterResponse(BaseModel):
     datasetId: str
+    name: str
 
 
 class Dataset(BaseModel):

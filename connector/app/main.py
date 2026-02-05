@@ -156,7 +156,7 @@ async def register_dataset(request: DatasetRegisterRequest):
         file_path=request.filePath
     )
 
-    return DatasetRegisterResponse(datasetId=dataset["datasetId"])
+    return DatasetRegisterResponse(datasetId=dataset["datasetId"], name=dataset["name"])
 
 
 @app.post("/datasets/upload", response_model=DatasetRegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -193,7 +193,7 @@ async def upload_dataset(
             file_path=temp_file_path
         )
 
-        return DatasetRegisterResponse(datasetId=dataset["datasetId"])
+        return DatasetRegisterResponse(datasetId=dataset["datasetId"], name=dataset["name"])
 
     except Exception as e:
         if os.path.exists(temp_file_path):
