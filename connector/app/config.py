@@ -59,7 +59,7 @@ class Config:
         else:
             logger.info("AI_MODE: OFF")
 
-    def validate_ai_mode_for_request(self) -> tuple[bool, str | None]:
+    def validate_ai_mode_for_request(self) -> Tuple[bool, Optional[str]]:
         """
         Validate that AI mode is properly configured for processing requests.
 
