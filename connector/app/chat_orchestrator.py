@@ -312,48 +312,19 @@ class ChatOrchestrator:
             updated_state = state_manager.get_state(request.conversationId)
             updated_context = updated_state.get("context", {})
 
-            if self._is_state_ready(updated_context):
-                # State is ready, generate SQL
-                logger.info("State is ready after deterministic routing - generating SQL")
-                result = await self._generate_sql_plan(request, catalog, updated_context)
-                # Add routing metadata
-                result.routing_metadata = self._create_routing_metadata(
-                    routing_decision="deterministic",
-                    deterministic_confidence=confidence,
-                    deterministic_match=analysis_type,
-                    openai_invoked=False,
-                    safe_mode=request.safeMode,
-                    privacy_mode=request.privacyMode
-                )
-                return result
-            else:
-                # State not ready, need clarification (probably time_period)
-                logger.info("State not ready after deterministic routing - requesting clarification")
-
-                # Check if we've already asked for time_period
-                if state_manager.has_asked_clarification(request.conversationId, "set_time_period"):
-                    logger.warning("Already asked for time_period - not asking again")
-                    # Return a helpful message instead
-                    return FinalAnswerResponse(
-                        message="I need a time period to analyze the data, but it seems you haven't provided one yet. Please specify a time period like 'last week' or 'last month' in your message."
-                    )
-
-                # Mark that we're asking for time_period
-                state_manager.mark_clarification_asked(request.conversationId, "set_time_period")
-
-                return NeedsClarificationResponse(
-                    question="What time period would you like to analyze?",
-                    choices=["Last week", "Last month", "Last quarter", "Last year"],
-                    intent="set_time_period",
-                    routing_metadata=self._create_routing_metadata(
-                        routing_decision="clarification_needed",
-                        deterministic_confidence=confidence if 'confidence' in locals() else None,
-                        deterministic_match=analysis_type if 'analysis_type' in locals() else None,
-                        openai_invoked=False,
-                        safe_mode=request.safeMode,
-                        privacy_mode=request.privacyMode
-                    )
-                )
+            # State is ready (time_period is optional), generate SQL
+            logger.info("State is ready after deterministic routing - generating SQL")
+            result = await self._generate_sql_plan(request, catalog, updated_context)
+            # Add routing metadata
+            result.routing_metadata = self._create_routing_metadata(
+                routing_decision="deterministic",
+                deterministic_confidence=confidence,
+                deterministic_match=analysis_type,
+                openai_invoked=False,
+                safe_mode=request.safeMode,
+                privacy_mode=request.privacyMode
+            )
+            return result
 
         # Low/medium confidence (< 0.8) - need to handle based on aiAssist setting
         logger.info(f"Low/medium confidence ({confidence:.2f}) - need clarification or AI")
@@ -454,48 +425,19 @@ class ChatOrchestrator:
             updated_state = state_manager.get_state(request.conversationId)
             updated_context = updated_state.get("context", {})
 
-            if self._is_state_ready(updated_context):
-                # State is ready, generate SQL
-                logger.info("State is ready after intent extraction - generating SQL")
-                result = await self._generate_sql_plan(request, catalog, updated_context)
-                # Add routing metadata
-                result.routing_metadata = self._create_routing_metadata(
-                    routing_decision="ai_intent_extraction",
-                    deterministic_confidence=None,
-                    deterministic_match=None,
-                    openai_invoked=True,
-                    safe_mode=request.safeMode,
-                    privacy_mode=request.privacyMode
-                )
-                return result
-            else:
-                # State not ready, need clarification (probably time_period)
-                logger.info("State not ready after intent extraction - requesting clarification")
-
-                # Check if we've already asked for time_period
-                if state_manager.has_asked_clarification(request.conversationId, "set_time_period"):
-                    logger.warning("Already asked for time_period - not asking again")
-                    # Return a helpful message instead
-                    return FinalAnswerResponse(
-                        message="I need a time period to analyze the data, but it seems you haven't provided one yet. Please specify a time period like 'last week' or 'last month' in your message."
-                    )
-
-                # Mark that we're asking for time_period
-                state_manager.mark_clarification_asked(request.conversationId, "set_time_period")
-
-                return NeedsClarificationResponse(
-                    question="What time period would you like to analyze?",
-                    choices=["Last week", "Last month", "Last quarter", "Last year"],
-                    intent="set_time_period",
-                    routing_metadata=self._create_routing_metadata(
-                        routing_decision="clarification_needed",
-                        deterministic_confidence=confidence if 'confidence' in locals() else None,
-                        deterministic_match=analysis_type if 'analysis_type' in locals() else None,
-                        openai_invoked=False,
-                        safe_mode=request.safeMode,
-                        privacy_mode=request.privacyMode
-                    )
-                )
+            # State is ready (time_period is optional), generate SQL
+            logger.info("State is ready after intent extraction - generating SQL")
+            result = await self._generate_sql_plan(request, catalog, updated_context)
+            # Add routing metadata
+            result.routing_metadata = self._create_routing_metadata(
+                routing_decision="ai_intent_extraction",
+                deterministic_confidence=None,
+                deterministic_match=None,
+                openai_invoked=True,
+                safe_mode=request.safeMode,
+                privacy_mode=request.privacyMode
+            )
+            return result
 
         except Exception as e:
             logger.error(f"Intent extraction error: {e}", exc_info=True)
@@ -507,20 +449,16 @@ class ChatOrchestrator:
     def _is_state_ready(self, context: Dict[str, Any]) -> bool:
         """Check if conversation state has required fields for SQL generation"""
         analysis_type = context.get("analysis_type")
-        time_period = context.get("time_period")
-
-        # Some analysis types don't require time_period
-        if analysis_type in ["data_quality", "row_count"]:
-            return analysis_type is not None
-
-        return analysis_type is not None and time_period is not None
+        # time_period is optional in v1
+        return analysis_type is not None
 
     async def _generate_sql_plan(
         self, request: ChatOrchestratorRequest, catalog: Any, context: Dict[str, Any]
     ) -> RunQueriesResponse:
         """Generate SQL queries based on analysis type without calling LLM"""
         analysis_type = context.get("analysis_type")
-        time_period = context.get("time_period")
+        time_period = context.get("time_period") or "all_time"
+        context["time_period"] = time_period
         privacy_mode = request.privacyMode if request.privacyMode is not None else True
         safe_mode = request.safeMode if request.safeMode is not None else False
 
@@ -749,7 +687,8 @@ class ChatOrchestrator:
 
         results = request.resultsContext.results
         analysis_type = context.get("analysis_type", "analysis")
-        time_period = context.get("time_period", "all time")
+        time_period = context.get("time_period") or "all_time"
+        context["time_period"] = time_period
 
         message_parts = [f"Here are your {analysis_type} results for {time_period}:"]
         tables = []
