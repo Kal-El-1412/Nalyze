@@ -547,44 +547,13 @@ async def handle_intent(request: ChatOrchestratorRequest):
 
     logger.info(f"State updated for conversation {request.conversationId}: {field_name} = {request.value}")
 
-    # Check if state is ready after update
-    has_analysis = "analysis_type" in context
-    has_time_period = "time_period" in context
-    logger.info(f"Readiness check: analysis_type={has_analysis}, time_period={has_time_period}")
+    # Delegate next step entirely to orchestrator
+    response = await chat_orchestrator.process(request)
 
-    if has_analysis and has_time_period:
-        logger.info(f"State is ready for conversation {request.conversationId}, moving to query generation")
-        # State is ready, generate queries
-        response = await chat_orchestrator.process(request)
+    if isinstance(response, FinalAnswerResponse):
+        await save_report_from_response(request, response, context)
 
-        if isinstance(response, FinalAnswerResponse):
-            await save_report_from_response(request, response, context)
-
-        return response
-    else:
-        # State not ready, check what's missing and ask for it
-        if "analysis_type" not in context:
-            logger.info(f"Missing analysis_type after intent, asking for it")
-            return NeedsClarificationResponse(
-                question="What type of analysis would you like to perform?",
-                choices=["row_count", "top_categories", "trend"],
-                intent="set_analysis_type"
-            )
-        elif "time_period" not in context:
-            logger.info(f"Missing time_period after intent, asking for it")
-            return NeedsClarificationResponse(
-                question="What time period would you like to analyze?",
-                choices=["Last 7 days", "Last 30 days", "Last 90 days", "All time"],
-                intent="set_time_period"
-            )
-        else:
-            # All required fields present (shouldn't reach here)
-            response = await chat_orchestrator.process(request)
-
-            if isinstance(response, FinalAnswerResponse):
-                await save_report_from_response(request, response, context)
-
-            return response
+    return response
 
 
 async def handle_message(request: ChatOrchestratorRequest):
