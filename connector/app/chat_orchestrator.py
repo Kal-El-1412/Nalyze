@@ -17,6 +17,8 @@ from app.models import (
     QueryToRun,
     TableData,
     AuditInfo,
+    AuditMetadata,
+    ExecutedQuery,
     RoutingMetadata,
     IntentAcknowledgmentResponse
 )
@@ -155,10 +157,10 @@ When you can generate SQL to answer the question:
 When you have results to summarize:
 {
   "type": "final_answer",
-  "message": "Based on the results, you had 1,250 orders in January with $45,320 in revenue. February showed a 15% increase with 1,437 orders totaling $52,100.",
+  "summaryMarkdown": "Based on the results, you had 1,250 orders in January with $45,320 in revenue. February showed a 15% increase with 1,437 orders totaling $52,100.",
   "tables": [
     {
-      "title": "Monthly Summary",
+      "name": "Monthly Summary",
       "columns": ["month", "orders", "revenue"],
       "rows": [["2024-01", 1250, 45320], ["2024-02", 1437, 52100]]
     }
@@ -240,6 +242,36 @@ class ChatOrchestrator:
             openai_invoked=openai_invoked,
             safe_mode=safe_mode,
             privacy_mode=privacy_mode
+        )
+
+    async def _create_audit_metadata(
+        self,
+        request: ChatOrchestratorRequest,
+        context: Dict[str, Any],
+        executed_queries: List[ExecutedQuery] = None
+    ) -> AuditMetadata:
+        """Create audit metadata for final answer response"""
+        from datetime import datetime
+
+        dataset = await storage.get_dataset(request.datasetId)
+        dataset_name = dataset.get("name", "Unknown") if dataset else "Unknown"
+
+        analysis_type = context.get("analysis_type", "general")
+        time_period = context.get("time_period", "all_time")
+        ai_assist = request.aiAssist if request.aiAssist is not None else False
+        safe_mode = request.safeMode if request.safeMode is not None else False
+        privacy_mode = request.privacyMode if request.privacyMode is not None else True
+
+        return AuditMetadata(
+            datasetId=request.datasetId,
+            datasetName=dataset_name,
+            analysisType=analysis_type,
+            timePeriod=time_period,
+            aiAssist=ai_assist,
+            safeMode=safe_mode,
+            privacyMode=privacy_mode,
+            executedQueries=executed_queries or [],
+            generatedAt=datetime.utcnow().isoformat() + "Z"
         )
 
     async def process(
@@ -337,9 +369,13 @@ class ChatOrchestrator:
             if state_manager.has_asked_clarification(request.conversationId, "set_analysis_type"):
                 logger.warning("Already asked for analysis_type - not asking again")
                 # We already asked once, return helpful message
+                state = state_manager.get_state(request.conversationId)
+                context = state.get("context", {})
+                audit = await self._create_audit_metadata(request, context)
                 return FinalAnswerResponse(
-                    message="I'm not sure how to help with that. Try asking about trends, categories, outliers, row counts, or data quality. Or enable AI Assist for more flexible queries.",
-                    tables=None
+                    summaryMarkdown="I'm not sure how to help with that. Try asking about trends, categories, outliers, row counts, or data quality. Or enable AI Assist for more flexible queries.",
+                    tables=[],
+                    audit=audit
                 )
 
             # Mark that we're asking for analysis_type
@@ -371,9 +407,13 @@ class ChatOrchestrator:
         # Check if OpenAI API key is configured
         if not self.openai_api_key:
             logger.warning("AI Assist is ON but OPENAI_API_KEY is not configured")
+            state = state_manager.get_state(request.conversationId)
+            context = state.get("context", {})
+            audit = await self._create_audit_metadata(request, context)
             return FinalAnswerResponse(
-                message="AI Assist is ON but no API key is configured. Set OPENAI_API_KEY in .env or turn AI Assist off.",
-                tables=None
+                summaryMarkdown="AI Assist is ON but no API key is configured. Set OPENAI_API_KEY in .env or turn AI Assist off.",
+                tables=[],
+                audit=audit
             )
 
         # Validate AI mode is properly configured
@@ -684,10 +724,11 @@ class ChatOrchestrator:
             audit_shared.append("safe_mode_no_raw_rows")
 
         if not request.resultsContext or not request.resultsContext.results:
+            audit = await self._create_audit_metadata(request, context)
             return FinalAnswerResponse(
-                message="No results to analyze.",
-                tables=None,
-                audit=AuditInfo(sharedWithAI=audit_shared)
+                summaryMarkdown="No results to analyze.",
+                tables=[],
+                audit=audit
             )
 
         results = request.resultsContext.results
@@ -713,7 +754,7 @@ class ChatOrchestrator:
                 elif analysis_type == "top_categories":
                     message_parts.append(f"\n**Top categories:** Found {row_count} categories.")
                     tables.append(TableData(
-                        title=f"Top {row_count} Categories",
+                        name=f"Top {row_count} Categories",
                         columns=result.columns,
                         rows=result.rows
                     ))
@@ -721,7 +762,7 @@ class ChatOrchestrator:
                 elif analysis_type == "trend":
                     message_parts.append(f"\n**Trend analysis:** {row_count} data points.")
                     tables.append(TableData(
-                        title="Monthly Trend",
+                        name="Monthly Trend",
                         columns=result.columns,
                         rows=result.rows
                     ))
@@ -795,22 +836,33 @@ class ChatOrchestrator:
                             message_parts.append(f"- Duplicate rows: {duplicates:,}")
 
                     tables.append(TableData(
-                        title=result.name.replace("_", " ").title(),
+                        name=result.name.replace("_", " ").title(),
                         columns=result.columns,
                         rows=result.rows
                     ))
 
                 else:
                     tables.append(TableData(
-                        title=result.name,
+                        name=result.name,
                         columns=result.columns,
                         rows=result.rows
                     ))
 
+        # Build executed queries from results
+        executed_queries = []
+        for result in results:
+            executed_queries.append(ExecutedQuery(
+                name=result.name,
+                sql="<query executed>",  # SQL not available in results context
+                rowCount=len(result.rows)
+            ))
+
+        audit = await self._create_audit_metadata(request, context, executed_queries)
+
         return FinalAnswerResponse(
-            message="\n".join(message_parts),
-            tables=tables if tables else None,
-            audit=AuditInfo(sharedWithAI=audit_shared)
+            summaryMarkdown="\n".join(message_parts),
+            tables=tables,
+            audit=audit
         )
 
     def _detect_best_categorical_column(self, catalog: Any) -> str:
@@ -926,7 +978,9 @@ class ChatOrchestrator:
             logger.error(f"Raw response: {response_text[:500]}")
             raise ValueError("Invalid response format from AI")
 
-        return self._parse_response(response_data, safe_mode, privacy_mode)
+        state = state_manager.get_state(request.conversationId)
+        context = state.get("context", {})
+        return await self._parse_response(response_data, request, context, safe_mode, privacy_mode)
 
     async def _extract_intent_with_openai(
         self, request: ChatOrchestratorRequest, catalog: Any
@@ -1155,8 +1209,13 @@ class ChatOrchestrator:
 
         return "\n".join(lines)
 
-    def _parse_response(
-        self, response_data: Dict[str, Any], safe_mode: bool = False, privacy_mode: bool = True
+    async def _parse_response(
+        self,
+        response_data: Dict[str, Any],
+        request: ChatOrchestratorRequest,
+        context: Dict[str, Any],
+        safe_mode: bool = False,
+        privacy_mode: bool = True
     ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
         response_type = response_data.get("type")
 
@@ -1204,28 +1263,26 @@ class ChatOrchestrator:
             )
 
         elif response_type == "final_answer":
-            tables = None
+            tables = []
             if "tables" in response_data and response_data["tables"]:
                 tables = [
                     TableData(
-                        title=t["title"],
+                        name=t.get("name") or t.get("title", "Table"),
                         columns=t["columns"],
                         rows=t["rows"]
                     )
                     for t in response_data["tables"]
                 ]
 
-            # Build audit trail based on actual modes
-            audit_shared = ["schema", "aggregates_only"]
-            if privacy_mode:
-                audit_shared.append("PII_redacted")
-            if safe_mode:
-                audit_shared.append("safe_mode_no_raw_rows")
+            # Build executed queries (not available from LLM response)
+            executed_queries = []
+
+            audit = await self._create_audit_metadata(request, context, executed_queries)
 
             return FinalAnswerResponse(
-                message=response_data.get("message", "Analysis complete."),
+                summaryMarkdown=response_data.get("summaryMarkdown") or response_data.get("message", "Analysis complete."),
                 tables=tables,
-                audit=AuditInfo(sharedWithAI=audit_shared)
+                audit=audit
             )
 
         else:

@@ -97,17 +97,33 @@ export interface RunQueriesResponse {
   };
 }
 
+export interface ExecutedQuery {
+  name: string;
+  sql: string;
+  rowCount: number;
+}
+
+export interface AuditMetadata {
+  datasetId: string;
+  datasetName: string;
+  analysisType: string;
+  timePeriod: string;
+  aiAssist: boolean;
+  safeMode: boolean;
+  privacyMode: boolean;
+  executedQueries: ExecutedQuery[];
+  generatedAt: string;
+}
+
 export interface FinalAnswerResponse {
   type: 'final_answer';
-  message: string;
-  tables?: Array<{
-    title: string;
+  summaryMarkdown: string;
+  tables: Array<{
+    name: string;
     columns: string[];
     rows: any[][];
   }>;
-  audit: {
-    sharedWithAI: string[];
-  };
+  audit: AuditMetadata;
 }
 
 export interface IntentAcknowledgmentResponse {
@@ -622,10 +638,10 @@ class ConnectorAPI {
     if (hasResultsContext) {
       return {
         type: 'final_answer',
-        message: '## Analysis Complete\n\nBased on the query results, here are the key findings:\n\n- Dataset contains diverse data patterns\n- Statistical analysis shows normal distribution\n- No significant anomalies detected in the processed subset',
+        summaryMarkdown: '## Analysis Complete\n\nBased on the query results, here are the key findings:\n\n- Dataset contains diverse data patterns\n- Statistical analysis shows normal distribution\n- No significant anomalies detected in the processed subset',
         tables: [
           {
-            title: 'Summary Statistics',
+            name: 'Summary Statistics',
             columns: ['Metric', 'Value'],
             rows: [
               ['Total Records', '1,234'],
@@ -635,7 +651,21 @@ class ConnectorAPI {
           },
         ],
         audit: {
-          sharedWithAI: ['Aggregated statistics only', 'No raw data rows shared'],
+          datasetId: 'mock-1',
+          datasetName: 'Mock Dataset',
+          analysisType: 'general',
+          timePeriod: 'all_time',
+          aiAssist: false,
+          safeMode: false,
+          privacyMode: true,
+          executedQueries: [
+            {
+              name: 'summary_statistics',
+              sql: 'SELECT COUNT(*) as total, COUNT(DISTINCT col) as unique FROM data',
+              rowCount: 1
+            }
+          ],
+          generatedAt: new Date().toISOString()
         },
       };
     }

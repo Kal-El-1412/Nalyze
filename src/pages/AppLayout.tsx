@@ -630,19 +630,31 @@ export default function AppLayout() {
       const assistantMessage: Message = {
         id: Date.now().toString(),
         type: 'assistant',
-        content: response.message,
+        content: response.summaryMarkdown,
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, assistantMessage]);
 
+      // Build audit log from new audit metadata structure
+      const auditLogEntries = [
+        ...resultsData.auditLog,
+        `${new Date().toLocaleTimeString()} - ✅ Analysis completed`,
+        `${new Date().toLocaleTimeString()} - Analysis Type: ${response.audit.analysisType}`,
+        `${new Date().toLocaleTimeString()} - Time Period: ${response.audit.timePeriod}`,
+        `${new Date().toLocaleTimeString()} - AI Assist: ${response.audit.aiAssist ? 'ON' : 'OFF'}`,
+        `${new Date().toLocaleTimeString()} - Safe Mode: ${response.audit.safeMode ? 'ON' : 'OFF'}`,
+        `${new Date().toLocaleTimeString()} - Privacy Mode: ${response.audit.privacyMode ? 'ON' : 'OFF'}`,
+      ];
+
+      // Add executed queries to audit log
+      response.audit.executedQueries.forEach(query => {
+        auditLogEntries.push(`${new Date().toLocaleTimeString()} - Query: ${query.name} (${query.rowCount} rows)`);
+      });
+
       setResultsData({
-        summary: response.message,
-        tableData: response.tables || [],
-        auditLog: [
-          ...resultsData.auditLog,
-          `${new Date().toLocaleTimeString()} - ✅ Analysis completed`,
-          `${new Date().toLocaleTimeString()} - Shared with AI: ${response.audit.sharedWithAI.join(', ')}`,
-        ],
+        summary: response.summaryMarkdown,
+        tableData: response.tables,
+        auditLog: auditLogEntries,
       });
     }
   };

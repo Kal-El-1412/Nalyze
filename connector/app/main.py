@@ -607,15 +607,24 @@ async def save_report_from_response(request: ChatOrchestratorRequest, response: 
                 for table in response.tables
             ]
 
-        audit_log = response.audit.sharedWithAI if response.audit else []
+        # Build audit log from the new audit metadata structure
+        audit_log = []
+        if response.audit:
+            audit_log.append(f"Analysis Type: {response.audit.analysisType}")
+            audit_log.append(f"Time Period: {response.audit.timePeriod}")
+            audit_log.append(f"AI Assist: {response.audit.aiAssist}")
+            audit_log.append(f"Safe Mode: {response.audit.safeMode}")
+            audit_log.append(f"Privacy Mode: {response.audit.privacyMode}")
+            for query in response.audit.executedQueries:
+                audit_log.append(f"Query: {query.name} ({query.rowCount} rows)")
 
         await storage.create_report(
             dataset_id=request.datasetId,
             conversation_id=request.conversationId,
             question=request.message or "",
-            analysis_type=context.get("analysis_type", ""),
-            time_period=context.get("time_period", ""),
-            summary_markdown=response.message,
+            analysis_type=response.audit.analysisType if response.audit else context.get("analysis_type", ""),
+            time_period=response.audit.timePeriod if response.audit else context.get("time_period", ""),
+            summary_markdown=response.summaryMarkdown,
             tables=tables,
             audit_log=audit_log,
             privacy_mode=request.privacyMode if request.privacyMode is not None else True,

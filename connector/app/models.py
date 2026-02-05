@@ -102,6 +102,24 @@ class AuditInfo(BaseModel):
     sharedWithAI: List[str] = Field(default_factory=lambda: ["schema", "aggregates_only"])
 
 
+class ExecutedQuery(BaseModel):
+    name: str
+    sql: str
+    rowCount: int
+
+
+class AuditMetadata(BaseModel):
+    datasetId: str
+    datasetName: str
+    analysisType: str
+    timePeriod: str
+    aiAssist: bool
+    safeMode: bool
+    privacyMode: bool
+    executedQueries: List[ExecutedQuery]
+    generatedAt: str
+
+
 class RoutingMetadata(BaseModel):
     """Metadata about how the request was routed and processed"""
     routing_decision: Literal["deterministic", "ai_intent_extraction", "clarification_needed", "direct_query"]
@@ -136,16 +154,16 @@ class RunQueriesResponse(BaseModel):
 
 
 class TableData(BaseModel):
-    title: str
+    name: str
     columns: List[str]
     rows: List[List[Any]]
 
 
 class FinalAnswerResponse(BaseModel):
     type: Literal["final_answer"] = "final_answer"
-    message: str
-    tables: Optional[List[TableData]] = None
-    audit: AuditInfo = Field(default_factory=AuditInfo)
+    summaryMarkdown: str
+    tables: List[TableData] = Field(default_factory=list)
+    audit: AuditMetadata
     routing_metadata: Optional[RoutingMetadata] = None
 
 
