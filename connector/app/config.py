@@ -21,7 +21,7 @@ class Config:
         self.xlsx_max_size_mb = 200
         self.rate_limit_requests_per_minute = 60
 
-        self._supabase_client: Client | None = None
+        self._supabase_client: Optional[Client] = None
 
         # AI Configuration
         self.ai_mode = os.getenv("AI_MODE", "off").lower() in ["on", "true", "1", "yes"]
