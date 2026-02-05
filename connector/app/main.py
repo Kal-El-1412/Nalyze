@@ -33,7 +33,6 @@ from app.ingest_pipeline import ingestion_pipeline
 from app.state import state_manager
 from app.query import query_executor, QueryTimeoutError
 from app.chat_orchestrator import chat_orchestrator
-from app.intent_router import intent_router
 from app.config import config
 from app.middleware import RequestLoggingMiddleware, RateLimitMiddleware
 
@@ -589,8 +588,15 @@ async def handle_intent(request: ChatOrchestratorRequest):
 
 
 async def handle_message(request: ChatOrchestratorRequest):
+    """
+    Handle message by delegating all routing logic to chat_orchestrator.
+
+    This function has exactly one responsibility: orchestrate the flow.
+    All routing decisions (deterministic, AI, clarifications) happen in chat_orchestrator.py.
+    """
     logger.info(f"[handle_message] conversationId={request.conversationId}, hasResultsContext={request.resultsContext is not None}")
 
+    # Load state/context for logging and report generation
     state = state_manager.get_state(request.conversationId)
     context = state.get("context", {})
 
@@ -598,11 +604,9 @@ async def handle_message(request: ChatOrchestratorRequest):
     logger.info(f"[handle_message] analysis_type present: {'analysis_type' in context}")
     logger.info(f"[handle_message] time_period present: {'time_period' in context}")
 
-    # CRITICAL FIX: If resultsContext is present, NEVER ask for clarification
-    # The queries have already been executed, so state MUST be ready
-    # Proceed directly to orchestrator to generate final answer
+    # resultsContext short-circuit: if queries were already executed, generate final answer
     if request.resultsContext:
-        logger.info(f"[handle_message] resultsContext present - bypassing clarification checks, proceeding to orchestrator")
+        logger.info(f"[handle_message] resultsContext present - calling orchestrator for final answer")
         response = await chat_orchestrator.process(request)
 
         if isinstance(response, FinalAnswerResponse):
@@ -610,86 +614,11 @@ async def handle_message(request: ChatOrchestratorRequest):
 
         return response
 
-    # If analysis_type not in context, use LLM intent router to infer it
-    if "analysis_type" not in context:
-        if not request.message:
-            logger.info(f"No analysis_type and no message, asking for analysis type")
-            return NeedsClarificationResponse(
-                question="What type of analysis would you like to perform?",
-                choices=["row_count", "top_categories", "trend", "outliers", "data_quality"],
-                intent="set_analysis_type"
-            )
-
-        # Use intent router to parse free-text message
-        try:
-            # Load catalog for context
-            catalog = None
-            try:
-                catalog = await ingestion_pipeline.load_catalog(request.datasetId)
-            except FileNotFoundError:
-                logger.warning(f"Catalog not found for dataset {request.datasetId}")
-
-            logger.info(f"[Intent Router] Processing message: {request.message[:100]}")
-            intent_result = await intent_router.route_intent(request.message, catalog)
-
-            logger.info(f"[Intent Router] Routed to: {intent_result}")
-
-            # Update context with inferred analysis_type
-            context["analysis_type"] = intent_result["analysis_type"]
-
-            # Store target columns if specified
-            if intent_result.get("target_columns"):
-                context["target_columns"] = intent_result["target_columns"]
-
-            # Check if time_period is required
-            required_params = intent_result.get("required_params", [])
-            needs_time_period = "time_period" in required_params
-
-            # Persist updated context
-            state_manager.update_state(request.conversationId, context=context)
-            logger.info(f"[Intent Router] Updated context: {context}")
-
-            # If time_period is required and missing, ask for it
-            if needs_time_period and "time_period" not in context:
-                logger.info(f"[Intent Router] time_period required, asking user")
-                return NeedsClarificationResponse(
-                    question="What time period would you like to analyze?",
-                    choices=["Last 7 days", "Last 30 days", "Last 90 days", "All time"],
-                    intent="set_time_period"
-                )
-
-            # All required params present, proceed to orchestrator
-            logger.info(f"[Intent Router] All params present, proceeding to analysis")
-
-        except Exception as e:
-            logger.error(f"Intent routing failed: {e}", exc_info=True)
-            return NeedsClarificationResponse(
-                question=f"I couldn't understand your question. What type of analysis would you like?",
-                choices=["row_count", "top_categories", "trend", "outliers", "data_quality"],
-                intent="set_analysis_type"
-            )
-
-    # Check if time_period is still missing (for cases where analysis_type was already set)
-    if "time_period" not in context:
-        # Determine if time_period is needed for this analysis type
-        analysis_type = context.get("analysis_type", "")
-        if analysis_type not in ["data_quality", "row_count"]:  # These don't always need time_period
-            logger.info(f"time_period missing for analysis_type={analysis_type}, asking user")
-            return NeedsClarificationResponse(
-                question="What time period would you like to analyze?",
-                choices=["Last 7 days", "Last 30 days", "Last 90 days", "All time"],
-                intent="set_time_period"
-            )
-
-    # All required fields present, proceed to analysis
-    state_manager.update_state(
-        request.conversationId,
-        message_count=state.get("message_count", 0) + 1
-    )
-
-    logger.info(f"All required fields present, calling analysis pipeline for conversation {request.conversationId}")
+    # No resultsContext: delegate ALL routing and clarification logic to orchestrator
+    logger.info(f"[handle_message] No resultsContext - delegating to orchestrator for routing")
     response = await chat_orchestrator.process(request)
 
+    # Save report if we got a final answer (orchestrator may generate one without resultsContext)
     if isinstance(response, FinalAnswerResponse):
         await save_report_from_response(request, response, context)
 
