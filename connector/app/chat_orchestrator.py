@@ -703,6 +703,12 @@ class ChatOrchestrator:
 
         query_objects = [QueryToRun(name=q["name"], sql=q["sql"]) for q in queries]
 
+        # Save planned queries to state for later audit trail
+        state_manager.update_state(
+            request.conversationId,
+            context={"last_planned_queries": queries}
+        )
+
         return RunQueriesResponse(
             queries=query_objects,
             explanation=explanation,
@@ -848,14 +854,23 @@ class ChatOrchestrator:
                         rows=result.rows
                     ))
 
-        # Build executed queries from results
+        # Build executed queries from results, using saved SQL from state
         executed_queries = []
+        last_planned_queries = context.get("last_planned_queries", [])
+
+        # Create a lookup map of planned queries by name
+        planned_queries_map = {q["name"]: q["sql"] for q in last_planned_queries}
+
         for result in results:
             # Use rowCount from result if available, otherwise use row count from returned rows
             row_count = result.rowCount if hasattr(result, 'rowCount') and result.rowCount is not None else len(result.rows)
+
+            # Get SQL from planned queries, fallback to placeholder if not found
+            sql = planned_queries_map.get(result.name, "<query executed>")
+
             executed_queries.append(ExecutedQuery(
                 name=result.name,
-                sql="<query executed>",  # SQL not available in results context
+                sql=sql,
                 rowCount=row_count
             ))
 
@@ -1257,6 +1272,12 @@ class ChatOrchestrator:
                 audit_shared.append("PII_redacted")
             if safe_mode:
                 audit_shared.append("safe_mode_no_raw_rows")
+
+            # Save planned queries to state for later audit trail
+            state_manager.update_state(
+                request.conversationId,
+                context={"last_planned_queries": queries}
+            )
 
             return RunQueriesResponse(
                 queries=query_objects,

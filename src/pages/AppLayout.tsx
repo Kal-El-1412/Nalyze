@@ -646,9 +646,10 @@ export default function AppLayout() {
         `${new Date().toLocaleTimeString()} - Privacy Mode: ${response.audit.privacyMode ? 'ON' : 'OFF'}`,
       ];
 
-      // Add executed queries to audit log
+      // Add executed queries to audit log with SQL and rowCount
       response.audit.executedQueries.forEach(query => {
         auditLogEntries.push(`${new Date().toLocaleTimeString()} - Query: ${query.name} (${query.rowCount} rows)`);
+        auditLogEntries.push(`  SQL: ${query.sql}`);
       });
 
       setResultsData({
