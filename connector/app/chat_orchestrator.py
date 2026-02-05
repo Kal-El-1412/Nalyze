@@ -458,7 +458,12 @@ class ChatOrchestrator:
         """Generate SQL queries based on analysis type without calling LLM"""
         analysis_type = context.get("analysis_type")
         time_period = context.get("time_period") or "all_time"
-        context["time_period"] = time_period
+
+        # Persist default time_period to conversation state if not already set
+        if not context.get("time_period"):
+            state_manager.update_context(request.conversationId, {"time_period": time_period})
+            context["time_period"] = time_period
+
         privacy_mode = request.privacyMode if request.privacyMode is not None else True
         safe_mode = request.safeMode if request.safeMode is not None else False
 
@@ -688,7 +693,11 @@ class ChatOrchestrator:
         results = request.resultsContext.results
         analysis_type = context.get("analysis_type", "analysis")
         time_period = context.get("time_period") or "all_time"
-        context["time_period"] = time_period
+
+        # Persist default time_period to conversation state if not already set
+        if not context.get("time_period"):
+            state_manager.update_context(request.conversationId, {"time_period": time_period})
+            context["time_period"] = time_period
 
         message_parts = [f"Here are your {analysis_type} results for {time_period}:"]
         tables = []
