@@ -45,7 +45,7 @@ class Config:
             logger.warning("Supabase credentials not found in environment")
 
     @property
-    def supabase(self) -> Client | None:
+    def supabase(self) -> Optional[Client]:
         return self._supabase_client
 
     def _validate_ai_config(self):
