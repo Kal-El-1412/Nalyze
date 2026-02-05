@@ -13,13 +13,25 @@ interface TestResult {
   success: boolean;
 }
 
+interface RoutingMetadata {
+  routing_decision: 'deterministic' | 'ai_intent_extraction' | 'clarification_needed' | 'direct_query';
+  deterministic_confidence: number | null;
+  deterministic_match: string | null;
+  openai_invoked: boolean;
+  safe_mode: boolean;
+  privacy_mode: boolean;
+}
+
 interface DiagnosticsPanelProps {
   connectorStatus: 'connected' | 'disconnected' | 'checking';
   connectorVersion: string;
   onRetryConnection: () => Promise<void>;
+  lastRoutingMetadata?: RoutingMetadata | null;
+  privacyMode?: boolean;
+  safeMode?: boolean;
 }
 
-export default function DiagnosticsPanel({ connectorStatus, connectorVersion, onRetryConnection }: DiagnosticsPanelProps) {
+export default function DiagnosticsPanel({ connectorStatus, connectorVersion, onRetryConnection, lastRoutingMetadata, privacyMode = true, safeMode = false }: DiagnosticsPanelProps) {
   const [events, setEvents] = useState<DiagnosticEvent[]>([]);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info' | 'success'>('all');
@@ -372,6 +384,68 @@ ${event.details ? `Details: ${event.details}` : ''}
                   <span className="text-slate-900">{lastChecked}</span>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-5 h-5 text-slate-600" />
+                <h3 className="font-semibold text-slate-900">Last Routing Decision</h3>
+              </div>
+              {lastRoutingMetadata ? (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Routing Method:</span>
+                    <span className={`font-medium px-2 py-0.5 rounded text-xs ${
+                      lastRoutingMetadata.routing_decision === 'deterministic' ? 'bg-blue-100 text-blue-800' :
+                      lastRoutingMetadata.routing_decision === 'ai_intent_extraction' ? 'bg-violet-100 text-violet-800' :
+                      lastRoutingMetadata.routing_decision === 'clarification_needed' ? 'bg-amber-100 text-amber-800' :
+                      'bg-slate-100 text-slate-800'
+                    }`}>
+                      {lastRoutingMetadata.routing_decision.replace(/_/g, ' ').toUpperCase()}
+                    </span>
+                  </div>
+                  {lastRoutingMetadata.deterministic_confidence !== null && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Confidence:</span>
+                      <span className="font-mono text-slate-900">
+                        {(lastRoutingMetadata.deterministic_confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  )}
+                  {lastRoutingMetadata.deterministic_match && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Match Type:</span>
+                      <span className="font-medium text-slate-900">{lastRoutingMetadata.deterministic_match}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">OpenAI Invoked:</span>
+                    <span className={`font-medium ${
+                      lastRoutingMetadata.openai_invoked ? 'text-violet-600' : 'text-slate-600'
+                    }`}>
+                      {lastRoutingMetadata.openai_invoked ? '✓ Yes' : '✗ No'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Safe Mode:</span>
+                    <span className={`font-medium ${
+                      lastRoutingMetadata.safe_mode ? 'text-blue-600' : 'text-slate-600'
+                    }`}>
+                      {lastRoutingMetadata.safe_mode ? '✓ Active' : '✗ Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Privacy Mode:</span>
+                    <span className={`font-medium ${
+                      lastRoutingMetadata.privacy_mode ? 'text-emerald-600' : 'text-slate-600'
+                    }`}>
+                      {lastRoutingMetadata.privacy_mode ? '✓ Active' : '✗ Inactive'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No routing data available yet. Send a message to see routing information.</p>
+              )}
             </div>
 
             <div>

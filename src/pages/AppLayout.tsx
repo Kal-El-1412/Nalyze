@@ -71,6 +71,7 @@ export default function AppLayout() {
     auditLog: [] as string[],
   });
 
+  const [lastRoutingMetadata, setLastRoutingMetadata] = useState<any>(null);
   const [showDatasetSummary, setShowDatasetSummary] = useState(false);
 
   useEffect(() => {
@@ -507,6 +508,13 @@ export default function AppLayout() {
   };
 
   const handleChatResponse = async (response: ChatResponse) => {
+    // Store routing metadata for diagnostics
+    if ((response as any).routing_metadata) {
+      setLastRoutingMetadata((response as any).routing_metadata);
+      diagnostics.info('Routing', `Decision: ${(response as any).routing_metadata.routing_decision}`,
+        JSON.stringify((response as any).routing_metadata, null, 2));
+    }
+
     if (response.type === 'needs_clarification') {
       // Use intent from backend if provided, otherwise detect from question
       const intent = response.intent || detectIntentFromQuestion(response.question);
@@ -820,6 +828,9 @@ export default function AppLayout() {
               connectorStatus={connectorStatus}
               connectorVersion={connectorVersion}
               onRetryConnection={handleRetryConnection}
+              lastRoutingMetadata={lastRoutingMetadata}
+              privacyMode={privacyMode}
+              safeMode={safeMode}
             />
           )}
         </div>

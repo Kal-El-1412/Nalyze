@@ -16,7 +16,9 @@ from app.models import (
     FinalAnswerResponse,
     QueryToRun,
     TableData,
-    AuditInfo
+    AuditInfo,
+    RoutingMetadata,
+    IntentAcknowledgmentResponse
 )
 from app.router import deterministic_router
 
@@ -221,9 +223,28 @@ class ChatOrchestrator:
         if self.ai_mode and self.openai_api_key:
             self.client = OpenAI(api_key=self.openai_api_key)
 
+    def _create_routing_metadata(
+        self,
+        routing_decision: str,
+        deterministic_confidence: float = None,
+        deterministic_match: str = None,
+        openai_invoked: bool = False,
+        safe_mode: bool = False,
+        privacy_mode: bool = True
+    ) -> RoutingMetadata:
+        """Create routing metadata for diagnostic purposes"""
+        return RoutingMetadata(
+            routing_decision=routing_decision,
+            deterministic_confidence=deterministic_confidence,
+            deterministic_match=deterministic_match,
+            openai_invoked=openai_invoked,
+            safe_mode=safe_mode,
+            privacy_mode=privacy_mode
+        )
+
     async def process(
         self, request: ChatOrchestratorRequest
-    ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse]:
+    ) -> Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse, IntentAcknowledgmentResponse]:
         logger.info(
             f"Processing chat request for dataset {request.datasetId}, "
             f"conversation {request.conversationId}, message: {request.message[:50] if request.message else 'None'}..."
@@ -294,7 +315,17 @@ class ChatOrchestrator:
             if self._is_state_ready(updated_context):
                 # State is ready, generate SQL
                 logger.info("State is ready after deterministic routing - generating SQL")
-                return await self._generate_sql_plan(request, catalog, updated_context)
+                result = await self._generate_sql_plan(request, catalog, updated_context)
+                # Add routing metadata
+                result.routing_metadata = self._create_routing_metadata(
+                    routing_decision="deterministic",
+                    deterministic_confidence=confidence,
+                    deterministic_match=analysis_type,
+                    openai_invoked=False,
+                    safe_mode=request.safeMode,
+                    privacy_mode=request.privacyMode
+                )
+                return result
             else:
                 # State not ready, need clarification (probably time_period)
                 logger.info("State not ready after deterministic routing - requesting clarification")
@@ -313,7 +344,15 @@ class ChatOrchestrator:
                 return NeedsClarificationResponse(
                     question="What time period would you like to analyze?",
                     choices=["Last week", "Last month", "Last quarter", "Last year"],
-                    intent="set_time_period"
+                    intent="set_time_period",
+                    routing_metadata=self._create_routing_metadata(
+                        routing_decision="clarification_needed",
+                        deterministic_confidence=confidence if 'confidence' in locals() else None,
+                        deterministic_match=analysis_type if 'analysis_type' in locals() else None,
+                        openai_invoked=False,
+                        safe_mode=request.safeMode,
+                        privacy_mode=request.privacyMode
+                    )
                 )
 
         # Low/medium confidence (< 0.8) - need to handle based on aiAssist setting
@@ -344,7 +383,15 @@ class ChatOrchestrator:
                     "Count rows",
                     "Check data quality"
                 ],
-                intent="set_analysis_type"
+                intent="set_analysis_type",
+                routing_metadata=self._create_routing_metadata(
+                    routing_decision="clarification_needed",
+                    deterministic_confidence=confidence,
+                    deterministic_match=None,
+                    openai_invoked=False,
+                    safe_mode=request.safeMode,
+                    privacy_mode=request.privacyMode
+                )
             )
 
         # AI Assist is ON - use OpenAI intent extractor
@@ -410,7 +457,17 @@ class ChatOrchestrator:
             if self._is_state_ready(updated_context):
                 # State is ready, generate SQL
                 logger.info("State is ready after intent extraction - generating SQL")
-                return await self._generate_sql_plan(request, catalog, updated_context)
+                result = await self._generate_sql_plan(request, catalog, updated_context)
+                # Add routing metadata
+                result.routing_metadata = self._create_routing_metadata(
+                    routing_decision="ai_intent_extraction",
+                    deterministic_confidence=None,
+                    deterministic_match=None,
+                    openai_invoked=True,
+                    safe_mode=request.safeMode,
+                    privacy_mode=request.privacyMode
+                )
+                return result
             else:
                 # State not ready, need clarification (probably time_period)
                 logger.info("State not ready after intent extraction - requesting clarification")
@@ -429,7 +486,15 @@ class ChatOrchestrator:
                 return NeedsClarificationResponse(
                     question="What time period would you like to analyze?",
                     choices=["Last week", "Last month", "Last quarter", "Last year"],
-                    intent="set_time_period"
+                    intent="set_time_period",
+                    routing_metadata=self._create_routing_metadata(
+                        routing_decision="clarification_needed",
+                        deterministic_confidence=confidence if 'confidence' in locals() else None,
+                        deterministic_match=analysis_type if 'analysis_type' in locals() else None,
+                        openai_invoked=False,
+                        safe_mode=request.safeMode,
+                        privacy_mode=request.privacyMode
+                    )
                 )
 
         except Exception as e:

@@ -101,6 +101,16 @@ class AuditInfo(BaseModel):
     sharedWithAI: List[str] = Field(default_factory=lambda: ["schema", "aggregates_only"])
 
 
+class RoutingMetadata(BaseModel):
+    """Metadata about how the request was routed and processed"""
+    routing_decision: Literal["deterministic", "ai_intent_extraction", "clarification_needed", "direct_query"]
+    deterministic_confidence: Optional[float] = None
+    deterministic_match: Optional[str] = None
+    openai_invoked: bool = False
+    safe_mode: bool = False
+    privacy_mode: bool = True
+
+
 class NeedsClarificationResponse(BaseModel):
     type: Literal["needs_clarification"] = "needs_clarification"
     question: str
@@ -108,6 +118,7 @@ class NeedsClarificationResponse(BaseModel):
     intent: Optional[str] = None
     allowFreeText: bool = False
     audit: AuditInfo = Field(default_factory=AuditInfo)
+    routing_metadata: Optional[RoutingMetadata] = None
 
 
 class QueryToRun(BaseModel):
@@ -120,6 +131,7 @@ class RunQueriesResponse(BaseModel):
     queries: List[QueryToRun]
     explanation: str
     audit: AuditInfo = Field(default_factory=AuditInfo)
+    routing_metadata: Optional[RoutingMetadata] = None
 
 
 class TableData(BaseModel):
@@ -133,6 +145,7 @@ class FinalAnswerResponse(BaseModel):
     message: str
     tables: Optional[List[TableData]] = None
     audit: AuditInfo = Field(default_factory=AuditInfo)
+    routing_metadata: Optional[RoutingMetadata] = None
 
 
 class IntentAcknowledgmentResponse(BaseModel):
@@ -141,6 +154,7 @@ class IntentAcknowledgmentResponse(BaseModel):
     value: Any
     state: Dict[str, Any]
     message: str
+    routing_metadata: Optional[RoutingMetadata] = None
 
 
 ChatOrchestratorResponse = Union[NeedsClarificationResponse, RunQueriesResponse, FinalAnswerResponse, IntentAcknowledgmentResponse]

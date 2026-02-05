@@ -511,6 +511,38 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                 </div>
               </div>
             )}
+            <div className={`border rounded-lg p-3 ${
+              aiAssist
+                ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200'
+                : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-start gap-2">
+                <Sparkles className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                  aiAssist ? 'text-violet-600' : 'text-slate-400'
+                }`} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className={`text-xs font-semibold ${
+                      aiAssist ? 'text-violet-900' : 'text-slate-700'
+                    }`}>AI Assist Status</p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                      aiAssist
+                        ? 'bg-violet-500 text-white'
+                        : 'bg-slate-300 text-slate-700'
+                    }`}>
+                      {aiAssist ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className={`text-xs leading-relaxed ${
+                    aiAssist ? 'text-violet-800' : 'text-slate-600'
+                  }`}>
+                    {aiAssist
+                      ? 'OpenAI intent extraction enabled. Can understand complex natural language queries.'
+                      : 'Using deterministic routing. Ask clear questions like "show me trends" or use button prompts.'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         <div className="flex gap-2 relative">
