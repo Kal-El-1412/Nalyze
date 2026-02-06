@@ -395,11 +395,13 @@ export default function AppLayout() {
         diagnostics.error('Chat', 'Failed to send chat message', errorDetails);
         setErrorToast(result.error);
 
-        showToastMessage('Failed to get response. Using mock data.');
-        const mockResponse = connectorApi.getMockChatResponse(content);
-        await handleChatResponse(mockResponse);
+        if (demoMode) {
+          showToastMessage('Failed to get response. Using mock data.');
+          const mockResponse = connectorApi.getMockChatResponse(content);
+          await handleChatResponse(mockResponse);
+        }
       }
-    } else {
+    } else if (demoMode) {
       setTimeout(async () => {
         const mockResponse = connectorApi.getMockChatResponse(content);
         await handleChatResponse(mockResponse);
@@ -488,12 +490,18 @@ export default function AppLayout() {
           diagnostics.error('Query Execution', 'Failed to execute queries', errorDetails);
           setErrorToast(result.error);
 
-          showToastMessage('Failed to execute queries. Using mock data.');
-          queryResults = connectorApi.getMockQueryResults();
+          if (demoMode) {
+            showToastMessage('Failed to execute queries. Using mock data.');
+            queryResults = connectorApi.getMockQueryResults();
+          } else {
+            return;
+          }
         }
-      } else {
+      } else if (demoMode) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         queryResults = connectorApi.getMockQueryResults();
+      } else {
+        return;
       }
 
       const privacyMessage = privacySettings.allowSampleRows
@@ -523,22 +531,37 @@ export default function AppLayout() {
       const datasetName = dataset?.name || activeDataset;
       const defaults = getDatasetDefaults(datasetName);
 
-      const followUpResponse = connectorStatus === 'connected'
-        ? await connectorApi.sendChatMessage({
-            datasetId: activeDataset,
-            conversationId,
-            message: 'Here are the query results.',
-            privacyMode,
-            safeMode,
-            resultsContext: { results: queryResults.results },
-            defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
-          })
-        : connectorApi.getMockChatResponse('results', true);
+      if (connectorStatus === 'connected') {
+        const result = await connectorApi.sendChatMessage({
+          datasetId: activeDataset,
+          conversationId,
+          message: 'Here are the query results.',
+          privacyMode,
+          safeMode,
+          resultsContext: { results: queryResults.results },
+          defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
+        });
 
-      setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
+        setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
 
-      if (followUpResponse) {
-        await handleChatResponse(followUpResponse);
+        if (result.success) {
+          await handleChatResponse(result.data);
+        } else {
+          const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+          diagnostics.error('Final Answer', 'Failed to generate summary', errorDetails);
+          setErrorToast(result.error);
+
+          if (demoMode) {
+            const mockResponse = connectorApi.getMockChatResponse('results', true);
+            await handleChatResponse(mockResponse);
+          }
+        }
+      } else if (demoMode) {
+        setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
+        const mockResponse = connectorApi.getMockChatResponse('results', true);
+        await handleChatResponse(mockResponse);
+      } else {
+        setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
       }
     } else if (response.type === 'final_answer') {
       const assistantMessage: Message = {
@@ -665,8 +688,7 @@ export default function AppLayout() {
           diagnostics.error('Intent', 'Failed to send intent', errorDetails);
           setErrorToast(result.error);
         }
-      } else {
-        // Demo mode fallback
+      } else if (demoMode) {
         setTimeout(async () => {
           const mockResponse = connectorApi.getMockChatResponse(choice);
           await handleChatResponse(mockResponse);
