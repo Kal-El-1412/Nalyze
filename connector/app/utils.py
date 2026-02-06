@@ -73,29 +73,3 @@ def truncate_string(text: str, max_length: int = 100) -> str:
     return text[:max_length - 3] + "..."
 
 
-def parse_natural_language_to_sql(
-    user_message: str,
-    columns: List[str],
-    sample_data: Optional[List[Dict[str, Any]]] = None
-) -> str:
-    user_message_lower = user_message.lower()
-
-    if "count" in user_message_lower or "how many" in user_message_lower:
-        return "SELECT COUNT(*) as count FROM data"
-
-    if "show" in user_message_lower or "display" in user_message_lower or "all" in user_message_lower:
-        if "first" in user_message_lower or "top" in user_message_lower:
-            return "SELECT * FROM data LIMIT 10"
-        return "SELECT * FROM data LIMIT 100"
-
-    if "average" in user_message_lower or "mean" in user_message_lower:
-        numeric_cols = [col for col in columns if "price" in col.lower() or "amount" in col.lower() or "value" in col.lower()]
-        if numeric_cols:
-            return f'SELECT AVG("{numeric_cols[0]}") as average FROM data'
-
-    if "sum" in user_message_lower or "total" in user_message_lower:
-        numeric_cols = [col for col in columns if "price" in col.lower() or "amount" in col.lower() or "value" in col.lower()]
-        if numeric_cols:
-            return f'SELECT SUM("{numeric_cols[0]}") as total FROM data'
-
-    return "SELECT * FROM data LIMIT 10"

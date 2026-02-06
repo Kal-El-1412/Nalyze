@@ -557,9 +557,9 @@ class ChatOrchestrator:
                 if categorical_col:
                     queries.append({
                         "name": "top_categories",
-                        "sql": f'SELECT "{categorical_col}", COUNT(*) as count FROM data GROUP BY "{categorical_col}" ORDER BY count DESC LIMIT 10'
+                        "sql": f'SELECT "{categorical_col}" AS category, COUNT(*) as count FROM data GROUP BY "{categorical_col}" ORDER BY count DESC LIMIT 20'
                     })
-                    explanation = f"I'll show you the top 10 categories in the {categorical_col} column for the {time_period} period."
+                    explanation = f"I'll show you the top 20 categories in the {categorical_col} column for the {time_period} period."
                 else:
                     queries.append({
                         "name": "row_count",
@@ -647,7 +647,7 @@ class ChatOrchestrator:
                         explanation = f"I'll analyze outliers (>2 std dev) across {len(numeric_cols)} numeric columns for the {time_period} period. Safe mode: showing aggregated counts only."
 
                     else:
-                        # Regular mode: return individual outlier rows
+                        # Regular mode: return individual outlier rows (capped at 200 total)
                         # Use UNION ALL to combine outliers from all columns
                         outlier_selects = []
                         for col in numeric_cols[:10]:  # Limit to 10 columns
@@ -658,21 +658,21 @@ class ChatOrchestrator:
                                     (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL) as mean_value,
                                     (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL) as stddev_value,
                                     ("{col}" - (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL))
-                                        / (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL) as z_score,
-                                    ROW_NUMBER() OVER () as row_index
+                                        / (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL) as z_score
                                 FROM data
                                 WHERE "{col}" IS NOT NULL
                                   AND ABS("{col}" - (SELECT AVG("{col}") FROM data WHERE "{col}" IS NOT NULL))
                                       > 2 * (SELECT STDDEV("{col}") FROM data WHERE "{col}" IS NOT NULL)
-                                LIMIT 50
                             """)
 
                         union_sql = " UNION ALL ".join(outlier_selects)
+                        # Wrap in subquery and cap at 200 rows
+                        final_sql = f"SELECT * FROM ({union_sql}) AS outliers LIMIT 200"
                         queries.append({
                             "name": "outliers_detected",
-                            "sql": union_sql
+                            "sql": final_sql
                         })
-                        explanation = f"I'll detect outliers beyond 2 standard deviations across {len(numeric_cols)} numeric columns for the {time_period} period."
+                        explanation = f"I'll detect outliers beyond 2 standard deviations across {len(numeric_cols)} numeric columns (capped at 200 rows) for the {time_period} period."
                 else:
                     queries.append({
                         "name": "row_count",
