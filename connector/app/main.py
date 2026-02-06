@@ -36,7 +36,7 @@ from app.query import query_executor, QueryTimeoutError
 from app.chat_orchestrator import chat_orchestrator
 from app.config import config
 from app.middleware import RequestLoggingMiddleware, RateLimitMiddleware
-from app.reports_storage import reports_storage
+from app.reports_local import reports_local_storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -213,14 +213,14 @@ async def list_jobs():
 @app.get("/reports", response_model=List[ReportSummary])
 async def list_reports(dataset_id: str = None):
     logger.debug(f"Listing reports for dataset: {dataset_id or 'all'}")
-    summaries = reports_storage.get_report_summaries(dataset_id)
+    summaries = reports_local_storage.get_report_summaries(dataset_id)
     return summaries
 
 
 @app.get("/reports/{report_id}", response_model=Report)
 async def get_report(report_id: str):
     logger.debug(f"Fetching report: {report_id}")
-    report = reports_storage.get_report_by_id(report_id)
+    report = reports_local_storage.get_report_by_id(report_id)
 
     if not report:
         raise HTTPException(
@@ -257,7 +257,7 @@ async def create_report(request: Request):
 
     logger.info(f"Manual report creation for dataset {dataset_id}")
 
-    report_id = reports_storage.save_report(
+    report_id = reports_local_storage.save_report(
         dataset_id=dataset_id,
         dataset_name=dataset_name,
         conversation_id=conversation_id,
@@ -630,52 +630,25 @@ async def handle_message(request: ChatOrchestratorRequest):
 
 async def save_report_from_response(request: ChatOrchestratorRequest, response: FinalAnswerResponse, context: dict):
     try:
-        tables = []
-        if response.tables:
-            tables = [
-                {
-                    "name": table.name,
-                    "columns": table.columns,
-                    "rows": table.rows
-                }
-                for table in response.tables
-            ]
-
-        # Build audit log from the new audit metadata structure
-        audit_log = []
-        if response.audit:
-            audit_log.append(f"Analysis Type: {response.audit.analysisType}")
-            audit_log.append(f"Time Period: {response.audit.timePeriod}")
-            audit_log.append(f"AI Assist: {response.audit.aiAssist}")
-            audit_log.append(f"Safe Mode: {response.audit.safeMode}")
-            audit_log.append(f"Privacy Mode: {response.audit.privacyMode}")
-            for query in response.audit.executedQueries:
-                audit_log.append(f"Query: {query.name} ({query.rowCount} rows)")
-
         # Get dataset name for the report
         dataset = await storage.get_dataset(request.datasetId)
         dataset_name = dataset.get("name", "Unknown") if dataset else "Unknown"
 
-        report_result = await storage.create_report(
+        # Save report using local storage
+        report_id = reports_local_storage.save_report(
             dataset_id=request.datasetId,
+            dataset_name=dataset_name,
             conversation_id=request.conversationId,
             question=request.message or "",
-            analysis_type=response.audit.analysisType if response.audit else context.get("analysis_type", ""),
-            time_period=response.audit.timePeriod if response.audit else context.get("time_period", ""),
-            summary_markdown=response.summaryMarkdown,
-            tables=tables,
-            audit_log=audit_log,
-            privacy_mode=request.privacyMode if request.privacyMode is not None else True,
-            safe_mode=request.safeMode if request.safeMode is not None else False,
-            dataset_name=dataset_name
+            final_answer=response
         )
 
         # Set reportId in audit metadata if report was saved
-        if report_result and "id" in report_result:
-            response.audit.reportId = report_result["id"]
-            logger.info(f"Report saved with ID: {report_result['id']} for conversation {request.conversationId}")
+        if report_id:
+            response.audit.reportId = report_id
+            logger.info(f"Report saved with ID: {report_id} for conversation {request.conversationId}")
         else:
-            logger.warning(f"Report saved but no ID returned for conversation {request.conversationId}")
+            logger.warning(f"Failed to save report for conversation {request.conversationId}")
 
     except Exception as e:
         logger.error(f"Failed to save report: {e}", exc_info=True)
