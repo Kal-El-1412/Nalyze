@@ -334,8 +334,15 @@ class ChatOrchestrator:
                 {"analysis_type": analysis_type}
             )
 
+            # For row_count, always use all_time (since it counts all rows, not a time range)
+            if analysis_type == "row_count":
+                state_manager.update_context(
+                    request.conversationId,
+                    {"time_period": "all_time"}
+                )
+                logger.info("row_count analysis - forcing time_period to all_time")
             # If we extracted time_period from message, update state
-            if "time_period" in params:
+            elif "time_period" in params:
                 state_manager.update_context(
                     request.conversationId,
                     {"time_period": params["time_period"]}
@@ -447,7 +454,11 @@ class ChatOrchestrator:
             if "analysis_type" in intent_data and intent_data["analysis_type"]:
                 extracted_fields["analysis_type"] = intent_data["analysis_type"]
 
-            if "time_period" in intent_data and intent_data["time_period"]:
+            # For row_count, always use all_time (since it counts all rows, not a time range)
+            if extracted_fields.get("analysis_type") == "row_count":
+                extracted_fields["time_period"] = "all_time"
+                logger.info("row_count analysis (AI path) - forcing time_period to all_time")
+            elif "time_period" in intent_data and intent_data["time_period"]:
                 extracted_fields["time_period"] = intent_data["time_period"]
 
             if "metric" in intent_data and intent_data["metric"]:
@@ -527,7 +538,7 @@ class ChatOrchestrator:
                 "name": "row_count",
                 "sql": "SELECT COUNT(*) as row_count FROM data"
             })
-            explanation = f"I'll count the total rows in your dataset for the {time_period} period."
+            explanation = "I'll count the total rows in your dataset."
 
         elif analysis_type == "top_categories":
             if working_catalog:
