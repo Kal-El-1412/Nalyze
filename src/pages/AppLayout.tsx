@@ -11,8 +11,8 @@ import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
 import Toast from '../components/Toast';
-import { connectorApi, Dataset, ChatResponse, ApiError, DatasetCatalog, Report } from '../services/connectorApi';
-import { generateHTMLReport, generateJSONBundle, downloadHTMLReport, downloadJSONBundle, downloadAsZIP, extractSummaryText, copyToClipboard } from '../utils/reportGenerator';
+import { connectorApi, Dataset, ChatResponse, ApiError, DatasetCatalog, ReportSummary } from '../services/connectorApi';
+import { copyToClipboard } from '../utils/reportGenerator';
 import { diagnostics } from '../services/diagnostics';
 import { getDatasetDefaults } from '../utils/datasetDefaults';
 
@@ -44,7 +44,7 @@ export default function AppLayout() {
   const [datasets, setDatasets] = useState<LocalDataset[]>([]);
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<DatasetCatalog | null>(null);
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<ReportSummary[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [connectorStatus, setConnectorStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [connectorVersion, setConnectorVersion] = useState<string>('');
@@ -261,45 +261,6 @@ export default function AppLayout() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleExportReport = () => {
-    const datasetName = activeDataset
-      ? datasets.find(d => d.id === activeDataset)?.name || 'Unknown Dataset'
-      : 'No Dataset';
-
-    const reportData = {
-      datasetId: activeDataset || undefined,
-      datasetName,
-      timestamp: new Date().toISOString(),
-      conversationId,
-      messages,
-      summary: resultsData.summary,
-      tableData: resultsData.tableData,
-      auditLog: resultsData.auditLog,
-      tables: resultsData.tables || [],
-    };
-
-    const htmlContent = generateHTMLReport(reportData);
-    const jsonContent = generateJSONBundle(reportData);
-
-    const newReport: Report = {
-      id: `report-${Date.now()}`,
-      datasetId: activeDataset || undefined,
-      datasetName,
-      timestamp: new Date().toISOString(),
-      conversationId,
-      htmlContent,
-      jsonContent,
-      summary: resultsData.summary,
-      messages,
-      tables: resultsData.tables || [],
-      auditLog: resultsData.auditLog,
-    };
-
-    const updatedReports = [newReport, ...reports];
-    saveReportsToStorage(updatedReports);
-    showToastMessage('Report ready ✅');
-  };
-
   const handleCopySummary = async () => {
     try {
       await copyToClipboard(resultsData.summary);
@@ -307,54 +268,6 @@ export default function AppLayout() {
     } catch (error) {
       showToastMessage('Failed to copy summary');
     }
-  };
-
-  const handleDownloadReport = (report: Report) => {
-    const filename = `${report.datasetName.replace(/\s+/g, '-')}-${Date.now()}.html`;
-    downloadHTMLReport(report.htmlContent, filename);
-    showToastMessage('HTML report downloaded');
-  };
-
-  const handleDownloadJSONReport = (report: Report) => {
-    if (!report.jsonContent) {
-      showToastMessage('JSON data not available for this report');
-      return;
-    }
-    const filename = `${report.datasetName.replace(/\s+/g, '-')}-${Date.now()}.json`;
-    downloadJSONBundle(report.jsonContent, filename);
-    showToastMessage('JSON report downloaded');
-  };
-
-  const handleDownloadZIPReport = async (report: Report) => {
-    if (!report.jsonContent) {
-      showToastMessage('JSON data not available for this report');
-      return;
-    }
-    try {
-      await downloadAsZIP(report.htmlContent, report.jsonContent, report.datasetName);
-      showToastMessage('ZIP archive downloaded');
-    } catch (error) {
-      showToastMessage('ZIP export failed. Please download HTML and JSON separately.');
-    }
-  };
-
-  const handleCopyReportSummary = async (report: Report) => {
-    if (!report.summary) {
-      showToastMessage('Summary not available for this report');
-      return;
-    }
-    try {
-      await copyToClipboard(report.summary);
-      showToastMessage('Summary copied to clipboard');
-    } catch (error) {
-      showToastMessage('Failed to copy summary');
-    }
-  };
-
-  const handleDeleteReport = (id: string) => {
-    const updatedReports = reports.filter(r => r.id !== id);
-    saveReportsToStorage(updatedReports);
-    showToastMessage('Report deleted');
   };
 
   const handleConnectData = async (
@@ -959,7 +872,6 @@ export default function AppLayout() {
                 tableData={resultsData.tableData}
                 auditLog={resultsData.auditLog}
                 auditMetadata={resultsData.auditMetadata}
-                onExportReport={handleExportReport}
                 onCopySummary={handleCopySummary}
                 hasContent={resultsData.summary !== '' || resultsData.tableData.length > 0}
               />

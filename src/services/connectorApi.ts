@@ -179,9 +179,18 @@ export interface DatasetCatalogResponse {
   tables: DatasetTable[];
 }
 
+export interface ReportSummary {
+  id: string;
+  title: string;
+  datasetId: string;
+  datasetName: string;
+  createdAt: string;
+}
+
 export interface Report {
   id: string;
   dataset_id: string;
+  dataset_name?: string;
   conversation_id: string;
   question: string;
   analysis_type: string;
@@ -479,7 +488,7 @@ class ConnectorAPI {
     }
   }
 
-  async getReports(datasetId?: string): Promise<Report[]> {
+  async getReports(datasetId?: string): Promise<ReportSummary[]> {
     try {
       const url = datasetId
         ? `${this.baseUrl}/reports?dataset_id=${datasetId}`

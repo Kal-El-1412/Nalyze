@@ -1,15 +1,30 @@
-import { FileText, Calendar, CheckCircle, ArrowLeft, Eye, RefreshCw } from 'lucide-react';
+import { FileText, Calendar, CheckCircle, ArrowLeft, Eye, RefreshCw, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { Report } from '../services/connectorApi';
+import { ReportSummary, Report, connectorApi } from '../services/connectorApi';
 
 interface ReportsPanelProps {
-  reports: Report[];
+  reports: ReportSummary[];
   datasets: Array<{ id: string; name: string }>;
   onRefresh?: () => void;
 }
 
 export default function ReportsPanel({ reports, datasets, onRefresh }: ReportsPanelProps) {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+
+  const handleSelectReport = async (summary: ReportSummary) => {
+    setIsLoadingReport(true);
+    try {
+      const fullReport = await connectorApi.getReport(summary.id);
+      if (fullReport) {
+        setSelectedReport(fullReport);
+      }
+    } catch (error) {
+      console.error('Failed to load report:', error);
+    } finally {
+      setIsLoadingReport(false);
+    }
+  };
 
   const getDatasetName = (datasetId: string) => {
     const dataset = datasets.find(d => d.id === datasetId);
@@ -154,7 +169,11 @@ export default function ReportsPanel({ reports, datasets, onRefresh }: ReportsPa
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {reports.length === 0 ? (
+        {isLoadingReport ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+          </div>
+        ) : reports.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm">No reports yet</p>
@@ -165,7 +184,7 @@ export default function ReportsPanel({ reports, datasets, onRefresh }: ReportsPa
             {reports.map((report) => (
               <button
                 key={report.id}
-                onClick={() => setSelectedReport(report)}
+                onClick={() => handleSelectReport(report)}
                 className="w-full p-4 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 bg-white transition-all group text-left"
               >
                 <div className="flex items-start justify-between mb-2">
@@ -174,35 +193,17 @@ export default function ReportsPanel({ reports, datasets, onRefresh }: ReportsPa
                       <FileText className="w-4 h-4 text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-slate-900 truncate">{getDatasetName(report.dataset_id)}</h3>
+                      <h3 className="font-medium text-slate-900 truncate">{report.datasetName}</h3>
                       <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
                         <Calendar className="w-3 h-3" />
-                        {formatDate(report.created_at)}
+                        {formatDate(report.createdAt)}
                       </div>
                     </div>
                   </div>
                   <Eye className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 flex-shrink-0 ml-2" />
                 </div>
 
-                {report.question && (
-                  <p className="text-xs text-slate-600 line-clamp-2 mb-2">{report.question}</p>
-                )}
-
-                <div className="flex items-center gap-2 text-xs">
-                  {report.analysis_type && (
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded">
-                      {report.analysis_type}
-                    </span>
-                  )}
-                  {report.time_period && (
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded">
-                      {report.time_period}
-                    </span>
-                  )}
-                  {report.privacy_mode && (
-                    <CheckCircle className="w-3 h-3 text-emerald-600" title="Privacy Mode" />
-                  )}
-                </div>
+                <p className="text-xs text-slate-600 line-clamp-2">{report.title}</p>
               </button>
             ))}
           </div>
