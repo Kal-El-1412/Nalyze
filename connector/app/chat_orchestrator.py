@@ -9,7 +9,7 @@ from app.ingest_pipeline import ingestion_pipeline
 from app.sql_validator import sql_validator
 from app.state import state_manager
 from app.pii_redactor import pii_redactor
-from app.reports_storage import reports_storage
+from app.reports_local import reports_local_storage
 from app.summarizer import results_summarizer
 from app.models import (
     ChatOrchestratorRequest,
@@ -568,11 +568,12 @@ class ChatOrchestrator:
                     })
                     explanation = f"I couldn't find a categorical column, so I'll show you the total row count for the {time_period} period."
             else:
+                # No catalog available - return row count as safe fallback
                 queries.append({
-                    "name": "discover_columns",
-                    "sql": "SELECT * FROM data LIMIT 1"
+                    "name": "row_count",
+                    "sql": "SELECT COUNT(*) as row_count FROM data"
                 })
-                explanation = f"I'll first discover the columns in your dataset, then show you the top categories for the {time_period} period."
+                explanation = f"I'll show you the total row count for the {time_period} period. Please ensure the dataset is ingested for detailed analysis."
 
         elif analysis_type == "trend":
             if working_catalog:
@@ -612,11 +613,12 @@ class ChatOrchestrator:
                     })
                     explanation = f"I couldn't find date columns for trending, so I'll show you the total row count for the {time_period} period."
             else:
+                # No catalog available - return row count as safe fallback
                 queries.append({
-                    "name": "discover_columns",
-                    "sql": "SELECT * FROM data LIMIT 1"
+                    "name": "row_count",
+                    "sql": "SELECT COUNT(*) as row_count FROM data"
                 })
-                explanation = f"I'll first discover the columns in your dataset, then show you the trends for the {time_period} period."
+                explanation = f"I'll show you the total row count for the {time_period} period. Please ensure the dataset is ingested for trend analysis."
 
         elif analysis_type == "outliers":
             if working_catalog:
@@ -681,11 +683,12 @@ class ChatOrchestrator:
                     })
                     explanation = f"I couldn't find numeric columns for outlier detection, so I'll show you the total row count for the {time_period} period."
             else:
+                # No catalog available - return row count as safe fallback
                 queries.append({
-                    "name": "discover_columns",
-                    "sql": "SELECT * FROM data LIMIT 1"
+                    "name": "row_count",
+                    "sql": "SELECT COUNT(*) as row_count FROM data"
                 })
-                explanation = f"I'll first discover the columns in your dataset, then check for outliers for the {time_period} period."
+                explanation = f"I'll show you the total row count for the {time_period} period. Please ensure the dataset is ingested for outlier analysis."
 
         elif analysis_type == "data_quality":
             if working_catalog:
@@ -712,11 +715,12 @@ class ChatOrchestrator:
                     })
                     explanation = f"I'll provide basic data quality statistics."
             else:
+                # No catalog available - return row count as safe fallback
                 queries.append({
-                    "name": "discover_columns",
-                    "sql": "SELECT * FROM data LIMIT 1"
+                    "name": "row_count",
+                    "sql": "SELECT COUNT(*) as row_count FROM data"
                 })
-                explanation = f"I'll first discover the columns in your dataset, then check data quality."
+                explanation = f"I'll show you the total row count for the {time_period} period. Please ensure the dataset is ingested for data quality analysis."
 
         else:
             queries.append({
@@ -848,7 +852,7 @@ class ChatOrchestrator:
 
         dataset_name = audit_metadata.datasetName
 
-        report_id = reports_storage.save_report(
+        report_id = reports_local_storage.save_report(
             dataset_id=request.datasetId,
             dataset_name=dataset_name,
             conversation_id=request.conversationId,
@@ -1298,7 +1302,7 @@ class ChatOrchestrator:
 
             dataset_name = audit.datasetName
 
-            report_id = reports_storage.save_report(
+            report_id = reports_local_storage.save_report(
                 dataset_id=request.datasetId,
                 dataset_name=dataset_name,
                 conversation_id=request.conversationId,
