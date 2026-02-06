@@ -87,7 +87,7 @@ class DeterministicRouter:
                     r"\btop\b.*\bcategor",
                     r"\bbreakdown\b",
                     r"\bby category\b",
-                    r"\bgrouped? by\b",
+                    r"\bgroup(?:ed)?\s+by\b",
                     r"\bmost\b.*\bby\b",
                     r"\bhighest\b",
                     r"\bbest\b.*\bby\b",
