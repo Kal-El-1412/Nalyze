@@ -35,6 +35,7 @@ from app.query import query_executor, QueryTimeoutError
 from app.chat_orchestrator import chat_orchestrator
 from app.config import config
 from app.middleware import RequestLoggingMiddleware, RateLimitMiddleware
+from app.reports_storage import reports_storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -222,14 +223,14 @@ async def list_jobs():
 @app.get("/reports", response_model=List[Report])
 async def list_reports(dataset_id: str = None):
     logger.debug(f"Listing reports for dataset: {dataset_id or 'all'}")
-    reports = await storage.list_reports(dataset_id)
+    reports = reports_storage.get_reports(dataset_id)
     return reports
 
 
 @app.get("/reports/{report_id}", response_model=Report)
 async def get_report(report_id: str):
     logger.debug(f"Fetching report: {report_id}")
-    report = await storage.get_report(report_id)
+    report = reports_storage.get_report_by_id(report_id)
 
     if not report:
         raise HTTPException(

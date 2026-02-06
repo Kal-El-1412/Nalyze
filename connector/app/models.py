@@ -119,6 +119,7 @@ class AuditMetadata(BaseModel):
     privacyMode: bool
     executedQueries: List[ExecutedQuery]
     generatedAt: str
+    reportId: Optional[str] = None
 
 
 class RoutingMetadata(BaseModel):
@@ -216,6 +217,21 @@ class PIIScanResult(BaseModel):
     scanned_columns: List[str]
     total_rows_scanned: int
     scan_completed_at: datetime
+
+
+class Report(BaseModel):
+    id: str
+    dataset_id: str
+    conversation_id: str
+    question: str
+    analysis_type: str
+    time_period: str
+    summary_markdown: str
+    tables: List[Dict[str, Any]]
+    audit_log: List[str]
+    created_at: str
+    privacy_mode: bool
+    safe_mode: bool
 
 
 class ErrorResponse(BaseModel):

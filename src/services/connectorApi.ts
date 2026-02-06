@@ -114,6 +114,7 @@ export interface AuditMetadata {
   privacyMode: boolean;
   executedQueries: ExecutedQuery[];
   generatedAt: string;
+  reportId?: string;
 }
 
 export interface FinalAnswerResponse {
@@ -808,6 +809,84 @@ class ConnectorAPI {
         },
       ],
     };
+  }
+
+  async fetchReports(datasetId?: string): Promise<ApiResult<Report[]>> {
+    try {
+      const url = datasetId
+        ? `${this.baseUrl}/reports?dataset_id=${encodeURIComponent(datasetId)}`
+        : `${this.baseUrl}/reports`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            method: 'GET',
+            message: `Failed to fetch reports: ${response.statusText}`,
+          },
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          status: 0,
+          statusText: 'Network Error',
+          url: `${this.baseUrl}/reports`,
+          method: 'GET',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
+
+  async fetchReportById(reportId: string): Promise<ApiResult<Report>> {
+    try {
+      const url = `${this.baseUrl}/reports/${reportId}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            method: 'GET',
+            message: `Failed to fetch report: ${response.statusText}`,
+          },
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          status: 0,
+          statusText: 'Network Error',
+          url: `${this.baseUrl}/reports/${reportId}`,
+          method: 'GET',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
   }
 }
 

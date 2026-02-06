@@ -9,6 +9,7 @@ from app.ingest_pipeline import ingestion_pipeline
 from app.sql_validator import sql_validator
 from app.state import state_manager
 from app.pii_redactor import pii_redactor
+from app.reports_storage import reports_storage
 from app.models import (
     ChatOrchestratorRequest,
     NeedsClarificationResponse,
@@ -876,11 +877,35 @@ class ChatOrchestrator:
 
         audit = await self._create_audit_metadata(request, context, executed_queries)
 
-        return FinalAnswerResponse(
+        # Create the final answer response
+        final_answer = FinalAnswerResponse(
             summaryMarkdown="\n".join(message_parts),
             tables=tables,
             audit=audit
         )
+
+        # Save report to database
+        state = state_manager.get_state(request.conversationId)
+        original_question = state.get("original_message", request.message or "")
+
+        dataset_name = audit.datasetName
+
+        report_id = reports_storage.save_report(
+            dataset_id=request.datasetId,
+            dataset_name=dataset_name,
+            conversation_id=request.conversationId,
+            question=original_question,
+            final_answer=final_answer
+        )
+
+        # Add reportId to audit metadata if save was successful
+        if report_id:
+            final_answer.audit.reportId = report_id
+            logger.info(f"Report saved with ID: {report_id}")
+        else:
+            logger.warning("Failed to save report, but continuing with response")
+
+        return final_answer
 
     def _detect_best_categorical_column(self, catalog: Any) -> str:
         """Detect best categorical column from catalog"""
@@ -1302,11 +1327,35 @@ class ChatOrchestrator:
 
             audit = await self._create_audit_metadata(request, context, executed_queries)
 
-            return FinalAnswerResponse(
+            # Create the final answer response
+            final_answer = FinalAnswerResponse(
                 summaryMarkdown=response_data.get("summaryMarkdown") or response_data.get("message", "Analysis complete."),
                 tables=tables,
                 audit=audit
             )
+
+            # Save report to database
+            state = state_manager.get_state(request.conversationId)
+            original_question = state.get("original_message", request.message or "")
+
+            dataset_name = audit.datasetName
+
+            report_id = reports_storage.save_report(
+                dataset_id=request.datasetId,
+                dataset_name=dataset_name,
+                conversation_id=request.conversationId,
+                question=original_question,
+                final_answer=final_answer
+            )
+
+            # Add reportId to audit metadata if save was successful
+            if report_id:
+                final_answer.audit.reportId = report_id
+                logger.info(f"Report saved with ID: {report_id}")
+            else:
+                logger.warning("Failed to save report, but continuing with response")
+
+            return final_answer
 
         else:
             logger.error(f"Unknown response type: {response_type}")

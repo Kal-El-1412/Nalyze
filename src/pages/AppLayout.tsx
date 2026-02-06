@@ -659,6 +659,12 @@ export default function AppLayout() {
         auditLog: auditLogEntries,
         auditMetadata: response.audit,
       });
+
+      // Fetch updated reports list after final_answer
+      if (response.audit.reportId) {
+        console.log(`Report saved with ID: ${response.audit.reportId}`);
+      }
+      loadReports();
     }
   };
 
