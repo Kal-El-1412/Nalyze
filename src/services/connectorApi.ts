@@ -731,16 +731,34 @@ class ConnectorAPI {
           },
         ],
         audit: {
-          sharedWithAI: ['Category aggregations', 'Revenue totals by category'],
+          datasetId: 'mock-1',
+          datasetName: 'Mock Dataset',
+          analysisType: 'category_analysis',
+          timePeriod: 'all_time',
+          aiAssist: false,
+          safeMode: false,
+          privacyMode: true,
+          executedQueries: [
+            {
+              name: 'category_summary',
+              sql: 'SELECT category, COUNT(*) as count, SUM(revenue) as revenue FROM data GROUP BY category',
+              rowCount: 5
+            }
+          ],
+          generatedAt: new Date().toISOString()
         },
       };
     }
 
     return {
-      type: 'needs_clarification',
-      question: 'What time period would you like to analyze?',
-      choices: ['Last 7 days', 'Last 30 days', 'Last 90 days', 'All time'],
-      allowFreeText: true,
+      type: 'run_queries',
+      queries: [
+        {
+          name: 'General Analysis',
+          sql: 'SELECT * FROM data LIMIT 100',
+        },
+      ],
+      explanation: 'Running initial data exploration query.',
     };
   }
 
