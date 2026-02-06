@@ -373,30 +373,65 @@ export default function AppLayout() {
       };
       setMessages(prev => [...prev, waitingMessage]);
 
-      const dataset = datasets.find(d => d.datasetId === activeDataset);
+      const dataset = datasets.find(d => d.id === activeDataset);
       const datasetName = dataset?.name || activeDataset;
       const defaults = getDatasetDefaults(datasetName);
 
-      const result = await connectorApi.sendChatMessage({
-        datasetId: activeDataset,
-        conversationId,
-        message: content,
-        privacyMode,
-        safeMode,
-        defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
-      });
+      try {
+        const result = await connectorApi.sendChatMessage({
+          datasetId: activeDataset,
+          conversationId,
+          message: content,
+          privacyMode,
+          safeMode,
+          defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
+        });
 
-      setMessages(prev => prev.filter(m => m.id !== waitingMessage.id));
+        setMessages(prev => prev.filter(m => m.id !== waitingMessage.id));
 
-      if (result.success) {
-        await handleChatResponse(result.data);
-      } else {
-        const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
-        diagnostics.error('Chat', 'Failed to send chat message', errorDetails);
-        setErrorToast(result.error);
+        if (result.success) {
+          await handleChatResponse(result.data);
+        } else {
+          // Connector returned error response
+          const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+          diagnostics.error('Chat', 'Failed to send chat message', errorDetails);
 
+          // Show error in chat as assistant message
+          const errorMessage: Message = {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `**Connector Error:** ${result.error.status} ${result.error.statusText}\n\nCould not reach the connector at \`/chat\` endpoint. Please check:\n- Is the connector running?\n- Check the connector URL in settings\n- View Diagnostics tab for details`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+
+          // Only fallback to mock if demo mode is enabled
+          if (demoMode) {
+            showToastMessage('Failed to get response. Using mock data.');
+            const mockResponse = connectorApi.getMockChatResponse(content);
+            await handleChatResponse(mockResponse);
+          }
+        }
+      } catch (error) {
+        // Network error, timeout, or other exception
+        setMessages(prev => prev.filter(m => m.id !== waitingMessage.id));
+
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorDetails = `Network error or timeout\n${errorMsg}`;
+        diagnostics.error('Chat', 'Network error during chat request', errorDetails);
+
+        // Show error in chat as assistant message
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          type: 'assistant',
+          content: `**Connection Error:** ${errorMsg}\n\nCould not connect to the connector. Please check:\n- Is the connector running?\n- Network connectivity\n- View Diagnostics tab for details`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+
+        // Only fallback to mock if demo mode is enabled
         if (demoMode) {
-          showToastMessage('Failed to get response. Using mock data.');
+          showToastMessage('Connection failed. Using mock data.');
           const mockResponse = connectorApi.getMockChatResponse(content);
           await handleChatResponse(mockResponse);
         }
@@ -527,30 +562,64 @@ export default function AppLayout() {
         )
       );
 
-      const dataset = datasets.find(d => d.datasetId === activeDataset);
+      const dataset = datasets.find(d => d.id === activeDataset);
       const datasetName = dataset?.name || activeDataset;
       const defaults = getDatasetDefaults(datasetName);
 
       if (connectorStatus === 'connected') {
-        const result = await connectorApi.sendChatMessage({
-          datasetId: activeDataset,
-          conversationId,
-          message: 'Here are the query results.',
-          privacyMode,
-          safeMode,
-          resultsContext: { results: queryResults.results },
-          defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
-        });
+        try {
+          const result = await connectorApi.sendChatMessage({
+            datasetId: activeDataset,
+            conversationId,
+            message: 'Here are the query results.',
+            privacyMode,
+            safeMode,
+            resultsContext: { results: queryResults.results },
+            defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
+          });
 
-        setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
+          setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
 
-        if (result.success) {
-          await handleChatResponse(result.data);
-        } else {
-          const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
-          diagnostics.error('Final Answer', 'Failed to generate summary', errorDetails);
-          setErrorToast(result.error);
+          if (result.success) {
+            await handleChatResponse(result.data);
+          } else {
+            // Connector returned error response
+            const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+            diagnostics.error('Final Answer', 'Failed to generate summary', errorDetails);
 
+            // Show error in chat as assistant message
+            const errorMessage: Message = {
+              id: Date.now().toString(),
+              type: 'assistant',
+              content: `**Connector Error:** ${result.error.status} ${result.error.statusText}\n\nFailed to generate summary from query results. Please check:\n- Connector is running properly\n- View Diagnostics tab for details`,
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, errorMessage]);
+
+            // Only fallback to mock if demo mode is enabled
+            if (demoMode) {
+              const mockResponse = connectorApi.getMockChatResponse('results', true);
+              await handleChatResponse(mockResponse);
+            }
+          }
+        } catch (error) {
+          // Network error, timeout, or other exception
+          setMessages(prev => prev.filter(m => m.id !== queriesMessageId));
+
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorDetails = `Network error or timeout\n${errorMsg}`;
+          diagnostics.error('Final Answer', 'Network error generating summary', errorDetails);
+
+          // Show error in chat as assistant message
+          const errorMessage: Message = {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `**Connection Error:** ${errorMsg}\n\nFailed to connect to connector for summary generation. Please check:\n- Connector is running\n- Network connectivity\n- View Diagnostics tab for details`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+
+          // Only fallback to mock if demo mode is enabled
           if (demoMode) {
             const mockResponse = connectorApi.getMockChatResponse('results', true);
             await handleChatResponse(mockResponse);
@@ -636,57 +705,124 @@ export default function AppLayout() {
         : choice;
 
       if (connectorStatus === 'connected') {
-        const result = await connectorApi.sendChatMessage({
-          datasetId: activeDataset,
-          conversationId,
-          intent,
-          value: normalizedValue,
-          privacyMode,
-          safeMode,
-        });
-
-        if (result.success) {
-          // Mark the clarification as answered BEFORE handling the response
-          setMessages(prev => {
-            // Find the last unanswered clarification with matching intent
-            const lastClarificationIndex = [...prev].reverse().findIndex(
-              m => m.type === 'clarification' &&
-                   m.clarificationData?.intent === intent &&
-                   !m.answered
-            );
-
-            if (lastClarificationIndex === -1) return prev;
-
-            // Convert back to original index
-            const actualIndex = prev.length - 1 - lastClarificationIndex;
-
-            // Mark as answered
-            return prev.map((msg, idx) =>
-              idx === actualIndex ? { ...msg, answered: true } : msg
-            );
+        try {
+          const result = await connectorApi.sendChatMessage({
+            datasetId: activeDataset,
+            conversationId,
+            intent,
+            value: normalizedValue,
+            privacyMode,
+            safeMode,
           });
 
-          await handleChatResponse(result.data);
+          if (result.success) {
+            // Mark the clarification as answered BEFORE handling the response
+            setMessages(prev => {
+              // Find the last unanswered clarification with matching intent
+              const lastClarificationIndex = [...prev].reverse().findIndex(
+                m => m.type === 'clarification' &&
+                     m.clarificationData?.intent === intent &&
+                     !m.answered
+              );
 
-          // Only send follow-up if backend returned intent_acknowledged
-          // If backend already progressed (run_queries, needs_clarification), don't send continue
-          if (result.data.type === 'intent_acknowledged') {
-            const followUpResult = await connectorApi.sendChatMessage({
-              datasetId: activeDataset,
-              conversationId,
-              message: 'continue',
-              privacyMode,
-              safeMode,
+              if (lastClarificationIndex === -1) return prev;
+
+              // Convert back to original index
+              const actualIndex = prev.length - 1 - lastClarificationIndex;
+
+              // Mark as answered
+              return prev.map((msg, idx) =>
+                idx === actualIndex ? { ...msg, answered: true } : msg
+              );
             });
 
-            if (followUpResult.success) {
-              await handleChatResponse(followUpResult.data);
+            await handleChatResponse(result.data);
+
+            // Only send follow-up if backend returned intent_acknowledged
+            // If backend already progressed (run_queries, needs_clarification), don't send continue
+            if (result.data.type === 'intent_acknowledged') {
+              try {
+                const followUpResult = await connectorApi.sendChatMessage({
+                  datasetId: activeDataset,
+                  conversationId,
+                  message: 'continue',
+                  privacyMode,
+                  safeMode,
+                });
+
+                if (followUpResult.success) {
+                  await handleChatResponse(followUpResult.data);
+                } else {
+                  // Follow-up failed
+                  const errorDetails = `${followUpResult.error.method} ${followUpResult.error.url}\n${followUpResult.error.status} ${followUpResult.error.statusText}\n${followUpResult.error.message}`;
+                  diagnostics.error('Follow-up', 'Failed to send follow-up', errorDetails);
+
+                  const errorMessage: Message = {
+                    id: Date.now().toString(),
+                    type: 'assistant',
+                    content: `**Connector Error:** ${followUpResult.error.status} ${followUpResult.error.statusText}\n\nFailed to continue processing after intent. Check Diagnostics tab for details.`,
+                    timestamp: new Date().toISOString(),
+                  };
+                  setMessages(prev => [...prev, errorMessage]);
+                }
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                const errorDetails = `Network error or timeout\n${errorMsg}`;
+                diagnostics.error('Follow-up', 'Network error sending follow-up', errorDetails);
+
+                const errorMessage: Message = {
+                  id: Date.now().toString(),
+                  type: 'assistant',
+                  content: `**Connection Error:** ${errorMsg}\n\nFailed to continue processing. Check connector is running.`,
+                  timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, errorMessage]);
+              }
+            }
+          } else {
+            // Connector returned error response
+            const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
+            diagnostics.error('Intent', 'Failed to send intent', errorDetails);
+
+            // Show error in chat as assistant message
+            const errorMessage: Message = {
+              id: Date.now().toString(),
+              type: 'assistant',
+              content: `**Connector Error:** ${result.error.status} ${result.error.statusText}\n\nFailed to process clarification response. Please check:\n- Connector is running properly\n- View Diagnostics tab for details`,
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, errorMessage]);
+
+            // Only fallback to mock if demo mode is enabled
+            if (demoMode) {
+              setTimeout(async () => {
+                const mockResponse = connectorApi.getMockChatResponse(choice);
+                await handleChatResponse(mockResponse);
+              }, 500);
             }
           }
-        } else {
-          const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
-          diagnostics.error('Intent', 'Failed to send intent', errorDetails);
-          setErrorToast(result.error);
+        } catch (error) {
+          // Network error, timeout, or other exception
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorDetails = `Network error or timeout\n${errorMsg}`;
+          diagnostics.error('Intent', 'Network error sending intent', errorDetails);
+
+          // Show error in chat as assistant message
+          const errorMessage: Message = {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `**Connection Error:** ${errorMsg}\n\nFailed to connect to connector. Please check:\n- Connector is running\n- Network connectivity\n- View Diagnostics tab for details`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+
+          // Only fallback to mock if demo mode is enabled
+          if (demoMode) {
+            setTimeout(async () => {
+              const mockResponse = connectorApi.getMockChatResponse(choice);
+              await handleChatResponse(mockResponse);
+            }, 500);
+          }
         }
       } else if (demoMode) {
         setTimeout(async () => {
