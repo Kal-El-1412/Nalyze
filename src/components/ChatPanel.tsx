@@ -38,8 +38,12 @@ interface AnalysisTemplate {
   icon: any;
   label: string;
   description: string;
+  analysisType: string;
   getPrompt: (catalog: DatasetCatalog | null) => string;
   color: string;
+  defaults?: {
+    timeBucket?: string;
+  };
 }
 
 const getAnalysisTemplates = (): AnalysisTemplate[] => [
@@ -48,6 +52,8 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: LineChart,
     label: 'Trend over time (monthly)',
     description: 'Analyze how metrics change month by month',
+    analysisType: 'trend',
+    defaults: { timeBucket: 'month' },
     getPrompt: (catalog) => {
       const dateCol = catalog?.detectedDateColumns[0] || 'date';
       const numericCol = catalog?.detectedNumericColumns[0] || 'value';
@@ -60,6 +66,8 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: Activity,
     label: 'Week-over-week change',
     description: 'Compare performance across consecutive weeks',
+    analysisType: 'trend',
+    defaults: { timeBucket: 'week' },
     getPrompt: (catalog) => {
       const dateCol = catalog?.detectedDateColumns[0] || 'date';
       const numericCol = catalog?.detectedNumericColumns[0] || 'value';
@@ -72,6 +80,7 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: AlertTriangle,
     label: 'Outliers and anomalies',
     description: 'Identify unusual patterns or extreme values',
+    analysisType: 'outliers',
     getPrompt: (catalog) => {
       const numericCol = catalog?.detectedNumericColumns[0] || 'values';
       return `Find outliers and anomalies in ${numericCol}. Show me values that are significantly different from the norm, including statistical outliers beyond 2 standard deviations.`;
@@ -83,6 +92,7 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: BarChart3,
     label: 'Top categories contributing to metric',
     description: 'Rank categories by their contribution',
+    analysisType: 'top_categories',
     getPrompt: (catalog) => {
       const numericCol = catalog?.detectedNumericColumns[0] || 'value';
       const textCols = catalog?.columns.filter(c =>
@@ -98,6 +108,7 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: Users,
     label: 'Cohort comparison',
     description: 'Compare different customer segments',
+    analysisType: 'top_categories',
     getPrompt: (catalog) => {
       const textCols = catalog?.columns.filter(c =>
         c.type.toUpperCase().includes('TEXT') || c.type.toUpperCase().includes('VARCHAR')
@@ -113,6 +124,7 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: Filter,
     label: 'Funnel-style drop-offs',
     description: 'Analyze conversion rates across stages',
+    analysisType: 'top_categories',
     getPrompt: (catalog) => {
       const textCols = catalog?.columns.filter(c =>
         c.type.toUpperCase().includes('TEXT') || c.type.toUpperCase().includes('VARCHAR')
@@ -127,20 +139,20 @@ const getAnalysisTemplates = (): AnalysisTemplate[] => [
     icon: Zap,
     label: 'Data quality report',
     description: 'Check completeness and consistency',
+    analysisType: 'data_quality',
     getPrompt: (catalog) => {
       return `Generate a data quality report showing: (1) missing values per column, (2) duplicate rows, (3) data type inconsistencies, and (4) potential data entry errors.`;
     },
     color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
   },
   {
-    id: 'executive-summary',
+    id: 'row-count',
     icon: FileText,
-    label: 'Executive summary',
-    description: 'High-level overview of key metrics',
+    label: 'Row count',
+    description: 'Count total rows in dataset',
+    analysisType: 'row_count',
     getPrompt: (catalog) => {
-      const numericCols = catalog?.detectedNumericColumns || [];
-      const metricsText = numericCols.length > 0 ? numericCols.slice(0, 3).join(', ') : 'key metrics';
-      return `Create an executive summary with: (1) total record count, (2) key statistics for ${metricsText}, (3) notable trends or patterns, and (4) any critical insights.`;
+      return `Count the total number of rows in the dataset.`;
     },
     color: 'text-slate-600 bg-slate-50 hover:bg-slate-100',
   },
@@ -201,9 +213,11 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
   };
 
   const handleTemplateSelect = (template: AnalysisTemplate) => {
-    const prompt = template.getPrompt(catalog);
-    setInput(prompt);
     setShowTemplates(false);
+
+    // Send structured intent with analysis_type as the value
+    // The choice parameter will be used as the display text in the user message
+    onClarificationResponse(template.analysisType, 'set_analysis_type');
   };
 
   const analysisTemplates = getAnalysisTemplates();
