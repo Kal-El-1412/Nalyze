@@ -10,6 +10,7 @@ from app.sql_validator import sql_validator
 from app.state import state_manager
 from app.pii_redactor import pii_redactor
 from app.reports_storage import reports_storage
+from app.summarizer import results_summarizer
 from app.models import (
     ChatOrchestratorRequest,
     NeedsClarificationResponse,
@@ -769,113 +770,17 @@ class ChatOrchestrator:
             state_manager.update_context(request.conversationId, {"time_period": time_period})
             context["time_period"] = time_period
 
-        message_parts = [f"Here are your {analysis_type} results for {time_period}:"]
+        # Convert results to tables for summarizer
         tables = []
-
         for result in results:
-            if result.rows:
-                row_count = len(result.rows)
+            row_count = result.rowCount if hasattr(result, 'rowCount') and result.rowCount is not None else len(result.rows)
 
-                if analysis_type == "row_count":
-                    total = result.rows[0][0] if result.rows and len(result.rows[0]) > 0 else 0
-                    message_parts.append(f"\n**Total rows:** {total:,}")
-
-                elif analysis_type == "top_categories":
-                    message_parts.append(f"\n**Top categories:** Found {row_count} categories.")
-                    tables.append(TableData(
-                        name=f"Top {row_count} Categories",
-                        columns=result.columns,
-                        rows=result.rows
-                    ))
-
-                elif analysis_type == "trend":
-                    message_parts.append(f"\n**Trend analysis:** {row_count} data points.")
-                    tables.append(TableData(
-                        name="Monthly Trend",
-                        columns=result.columns,
-                        rows=result.rows
-                    ))
-
-                elif analysis_type == "outliers":
-                    if result.name == "outlier_summary":
-                        # Safe mode: aggregated outlier counts
-                        message_parts.append(f"\n**Outlier Summary (Safe Mode - Aggregated Counts):**")
-                        if result.rows:
-                            total_outliers = sum(row[1] for row in result.rows if len(row) > 1 and row[1])
-                            cols_with_outliers = sum(1 for row in result.rows if len(row) > 1 and row[1] and row[1] > 0)
-                            message_parts.append(f"- Total outliers detected: {total_outliers:,}")
-                            message_parts.append(f"- Columns with outliers: {cols_with_outliers}")
-                            message_parts.append(f"- Detection threshold: >2 standard deviations from mean")
-
-                        tables.append(TableData(
-                            title="Outlier Summary by Column",
-                            columns=result.columns,
-                            rows=result.rows
-                        ))
-
-                    elif result.name == "outliers_detected":
-                        # Regular mode: individual outlier rows
-                        message_parts.append(f"\n**Outliers Detected (>2 Std Dev):**")
-                        if result.rows:
-                            outlier_count = len(result.rows)
-                            unique_columns = len(set(row[0] for row in result.rows if len(row) > 0))
-                            message_parts.append(f"- Total outlier values: {outlier_count}")
-                            message_parts.append(f"- Columns analyzed: {unique_columns}")
-                            message_parts.append(f"- Showing detailed outlier rows with z-scores")
-
-                        tables.append(TableData(
-                            title="Outlier Details",
-                            columns=result.columns,
-                            rows=result.rows[:200]  # Limit display to 200 rows
-                        ))
-
-                    else:
-                        # Fallback for any other outlier-related results
-                        tables.append(TableData(
-                            title=result.name.replace("_", " ").title(),
-                            columns=result.columns,
-                            rows=result.rows
-                        ))
-
-                elif analysis_type == "data_quality":
-                    if result.name == "null_counts":
-                        message_parts.append(f"\n**Data Quality Check:**")
-                        if result.rows and len(result.rows) > 0:
-                            row = result.rows[0]
-                            total = row[0] if len(row) > 0 else 0
-                            message_parts.append(f"- Total rows: {total:,}")
-
-                            # Count columns with nulls
-                            null_cols = 0
-                            for i in range(1, len(row)):
-                                if row[i] and row[i] > 0:
-                                    null_cols += 1
-
-                            if null_cols > 0:
-                                message_parts.append(f"- Columns with null values: {null_cols}")
-                            else:
-                                message_parts.append(f"- No null values detected")
-
-                    elif result.name == "duplicate_check":
-                        if result.rows and len(result.rows) > 0:
-                            row = result.rows[0]
-                            total = row[0] if len(row) > 0 else 0
-                            unique = row[1] if len(row) > 1 else 0
-                            duplicates = total - unique if total > unique else 0
-                            message_parts.append(f"- Duplicate rows: {duplicates:,}")
-
-                    tables.append(TableData(
-                        name=result.name.replace("_", " ").title(),
-                        columns=result.columns,
-                        rows=result.rows
-                    ))
-
-                else:
-                    tables.append(TableData(
-                        name=result.name,
-                        columns=result.columns,
-                        rows=result.rows
-                    ))
+            tables.append({
+                "name": result.name,
+                "columns": result.columns,
+                "rows": result.rows,
+                "rowCount": row_count
+            })
 
         # Build executed queries from results, using saved SQL from state
         executed_queries = []
@@ -897,20 +802,51 @@ class ChatOrchestrator:
                 rowCount=row_count
             ))
 
-        audit = await self._create_audit_metadata(request, context, executed_queries)
+        audit_metadata = await self._create_audit_metadata(request, context, executed_queries)
+
+        # Generate summary using results-driven summarizer
+        ai_assist = request.aiAssist if request.aiAssist is not None else False
+        flags = {
+            "aiAssist": ai_assist,
+            "safeMode": safe_mode,
+            "privacyMode": privacy_mode
+        }
+
+        audit_dict = {
+            "executedQueries": [
+                {"name": eq.name, "sql": eq.sql, "rowCount": eq.rowCount}
+                for eq in executed_queries
+            ]
+        }
+
+        summary_markdown = results_summarizer.summarize_results(
+            analysis_type=analysis_type,
+            tables=tables,
+            audit=audit_dict,
+            flags=flags
+        )
+
+        # Convert tables back to TableData objects for response
+        table_data_objects = []
+        for table in tables:
+            table_data_objects.append(TableData(
+                name=table["name"],
+                columns=table["columns"],
+                rows=table["rows"]
+            ))
 
         # Create the final answer response
         final_answer = FinalAnswerResponse(
-            summaryMarkdown="\n".join(message_parts),
-            tables=tables,
-            audit=audit
+            summaryMarkdown=summary_markdown,
+            tables=table_data_objects,
+            audit=audit_metadata
         )
 
         # Save report to database
         state = state_manager.get_state(request.conversationId)
         original_question = state.get("original_message", request.message or "")
 
-        dataset_name = audit.datasetName
+        dataset_name = audit_metadata.datasetName
 
         report_id = reports_storage.save_report(
             dataset_id=request.datasetId,
