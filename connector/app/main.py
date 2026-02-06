@@ -663,7 +663,11 @@ async def save_report_from_response(request: ChatOrchestratorRequest, response: 
             for query in response.audit.executedQueries:
                 audit_log.append(f"Query: {query.name} ({query.rowCount} rows)")
 
-        await storage.create_report(
+        # Get dataset name for the report
+        dataset = await storage.get_dataset(request.datasetId)
+        dataset_name = dataset.get("name", "Unknown") if dataset else "Unknown"
+
+        report_result = await storage.create_report(
             dataset_id=request.datasetId,
             conversation_id=request.conversationId,
             question=request.message or "",
@@ -673,10 +677,17 @@ async def save_report_from_response(request: ChatOrchestratorRequest, response: 
             tables=tables,
             audit_log=audit_log,
             privacy_mode=request.privacyMode if request.privacyMode is not None else True,
-            safe_mode=request.safeMode if request.safeMode is not None else False
+            safe_mode=request.safeMode if request.safeMode is not None else False,
+            dataset_name=dataset_name
         )
 
-        logger.info(f"Report saved for conversation {request.conversationId}")
+        # Set reportId in audit metadata if report was saved
+        if report_result and "id" in report_result:
+            response.audit.reportId = report_result["id"]
+            logger.info(f"Report saved with ID: {report_result['id']} for conversation {request.conversationId}")
+        else:
+            logger.warning(f"Report saved but no ID returned for conversation {request.conversationId}")
+
     except Exception as e:
         logger.error(f"Failed to save report: {e}", exc_info=True)
 

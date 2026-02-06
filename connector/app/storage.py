@@ -215,7 +215,8 @@ class StorageManager:
         tables: List[Dict[str, Any]],
         audit_log: List[str],
         privacy_mode: bool,
-        safe_mode: bool
+        safe_mode: bool,
+        dataset_name: str = None
     ) -> Dict[str, Any]:
         from app.config import config
 
@@ -236,6 +237,10 @@ class StorageManager:
                 "privacy_mode": privacy_mode,
                 "safe_mode": safe_mode
             }
+
+            # Add dataset_name if provided
+            if dataset_name:
+                report_data["dataset_name"] = dataset_name
 
             result = config.supabase.table("reports").insert(report_data).execute()
 
