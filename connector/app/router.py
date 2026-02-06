@@ -19,12 +19,35 @@ class DeterministicRouter:
         # Define keywords for each analysis type
         # Format: analysis_type -> (strong_keywords, weak_keywords)
         self.keyword_patterns = {
+            "row_count": {
+                "strong": [
+                    r"\brow count\b",
+                    r"\bcount\s+(?:the\s+)?rows?\b",
+                    r"\bhow many rows?\b",
+                    r"\btotal rows?\b",
+                    r"\bnumber of rows?\b",
+                    r"\brecord count\b",
+                    r"\bhow many records?\b",
+                    r"\btotal records?\b",
+                    r"\bcount(?:ing)?\s+of\s+rows?\b",
+                ],
+                "weak": [
+                    r"\bhow many\b",
+                    r"\bcount\b",
+                    r"\btotal\b",
+                    r"\bsize\b",
+                ]
+            },
             "trend": {
                 "strong": [
                     r"\btrend(?:s|ing)?\b",
                     r"\bover time\b",
                     r"\bmonthly\b",
                     r"\bweekly\b",
+                    r"\bweek[- ]over[- ]week\b",
+                    r"\bmonth[- ]over[- ]month\b",
+                    r"\bw[o0][w]?\b",  # wow abbreviation
+                    r"\bm[o0]m\b",  # mom abbreviation
                     r"\bdaily\b",
                     r"\bquarterly\b",
                     r"\byearly\b",
@@ -37,6 +60,25 @@ class DeterministicRouter:
                     r"\bprogress\b",
                     r"\bevolution\b",
                     r"\bpattern\b",
+                ]
+            },
+            "outliers": {
+                "strong": [
+                    r"\boutlier(?:s)?\b",
+                    r"\banomal(?:y|ies)\b",
+                    r"\b2\s+std(?:\.?|ev)?\b",
+                    r"\b2\s+standard deviations?\b",
+                    r"\bstd dev\b",
+                    r"\bstandard deviation\b",
+                    r"\bz[- ]?score\b",
+                    r"\bunusual\b",
+                    r"\babnorm?al\b",
+                ],
+                "weak": [
+                    r"\bextreme\b",
+                    r"\bodd\b",
+                    r"\bweird\b",
+                    r"\bspike(?:s)?\b",
                 ]
             },
             "top_categories": {
@@ -56,43 +98,6 @@ class DeterministicRouter:
                     r"\bcompare\b",
                     r"\bdistribution\b",
                     r"\bsplit\b",
-                ]
-            },
-            "outliers": {
-                "strong": [
-                    r"\boutlier(?:s)?\b",
-                    r"\banomal(?:y|ies)\b",
-                    r"\bstd dev\b",
-                    r"\bstandard deviation\b",
-                    r"\bz-?score\b",
-                    r"\bunusual\b",
-                    r"\babnorm?al\b",
-                ],
-                "weak": [
-                    r"\bextreme\b",
-                    r"\bodd\b",
-                    r"\bweird\b",
-                    r"\bspike(?:s)?\b",
-                ]
-            },
-            "row_count": {
-                "strong": [
-                    r"\bhow many\s+\w+\s+rows?\b",
-                    r"\bhow many rows?\b",
-                    r"\bcount(?:ing)? rows?\b",
-                    r"\brow count\b",
-                    r"\btotal rows?\b",
-                    r"\bnumber of rows?\b",
-                    r"\brecord count\b",
-                    r"\bhow many\s+\w+\s+records?\b",
-                    r"\bhow many records?\b",
-                    r"\btotal\s+\w+\s+records?\b",
-                ],
-                "weak": [
-                    r"\bhow many\b",
-                    r"\bcount\b",
-                    r"\btotal\b",
-                    r"\bsize\b",
                 ]
             },
             "data_quality": {
