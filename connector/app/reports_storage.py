@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from app.config import config
-from app.models import Report, FinalAnswerResponse, TableData
+from app.models import Report, ReportSummary, FinalAnswerResponse, TableData
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ class ReportsStorage:
             result = self.supabase.table("reports").insert({
                 "id": report_id,
                 "dataset_id": dataset_id,
+                "dataset_name": dataset_name,
                 "conversation_id": conversation_id,
                 "question": question,
                 "analysis_type": final_answer.audit.analysisType,
@@ -123,6 +124,7 @@ class ReportsStorage:
                     reports.append(Report(
                         id=row["id"],
                         dataset_id=row["dataset_id"],
+                        dataset_name=row.get("dataset_name"),
                         conversation_id=row["conversation_id"],
                         question=row["question"],
                         analysis_type=row["analysis_type"],
@@ -164,6 +166,7 @@ class ReportsStorage:
                 return Report(
                     id=row["id"],
                     dataset_id=row["dataset_id"],
+                    dataset_name=row.get("dataset_name"),
                     conversation_id=row["conversation_id"],
                     question=row["question"],
                     analysis_type=row["analysis_type"],
@@ -181,6 +184,54 @@ class ReportsStorage:
         except Exception as e:
             logger.error(f"Error fetching report {report_id}: {e}")
             return None
+
+    def get_report_summaries(self, dataset_id: Optional[str] = None, limit: int = 100) -> List[ReportSummary]:
+        """
+        Get list of report summaries for display in UI
+
+        Args:
+            dataset_id: Optional dataset ID to filter by
+            limit: Maximum number of reports to return
+
+        Returns:
+            List of ReportSummary objects with id, title, datasetId, datasetName, createdAt
+        """
+        if not self.supabase:
+            logger.warning("Supabase client not initialized, cannot fetch report summaries")
+            return []
+
+        try:
+            query = self.supabase.table("reports").select(
+                "id, question, analysis_type, dataset_id, dataset_name, created_at"
+            )
+
+            if dataset_id:
+                query = query.eq("dataset_id", dataset_id)
+
+            result = query.order("created_at", desc=True).limit(limit).execute()
+
+            if result.data:
+                summaries = []
+                for row in result.data:
+                    title = row.get("question", "Untitled Report")
+                    if not title or title.strip() == "":
+                        analysis_type = row.get("analysis_type", "analysis")
+                        title = f"{analysis_type.replace('_', ' ').title()} Report"
+
+                    summaries.append(ReportSummary(
+                        id=row["id"],
+                        title=title,
+                        datasetId=row["dataset_id"],
+                        datasetName=row.get("dataset_name") or "Unknown Dataset",
+                        createdAt=row["created_at"],
+                    ))
+                return summaries
+
+            return []
+
+        except Exception as e:
+            logger.error(f"Error fetching report summaries: {e}")
+            return []
 
 
 reports_storage = ReportsStorage()

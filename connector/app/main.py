@@ -26,7 +26,8 @@ from app.models import (
     RunQueriesResponse,
     FinalAnswerResponse,
     IntentAcknowledgmentResponse,
-    Report
+    Report,
+    ReportSummary
 )
 from app.storage import storage
 from app.ingest_pipeline import ingestion_pipeline
@@ -220,11 +221,11 @@ async def list_jobs():
     return jobs
 
 
-@app.get("/reports", response_model=List[Report])
+@app.get("/reports", response_model=List[ReportSummary])
 async def list_reports(dataset_id: str = None):
     logger.debug(f"Listing reports for dataset: {dataset_id or 'all'}")
-    reports = reports_storage.get_reports(dataset_id)
-    return reports
+    summaries = reports_storage.get_report_summaries(dataset_id)
+    return summaries
 
 
 @app.get("/reports/{report_id}", response_model=Report)
@@ -239,6 +240,49 @@ async def get_report(report_id: str):
         )
 
     return report
+
+
+@app.post("/reports", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_report(request: Request):
+    body = await request.json()
+
+    dataset_id = body.get("datasetId")
+    dataset_name = body.get("datasetName")
+    conversation_id = body.get("conversationId")
+    question = body.get("question")
+    final_answer_data = body.get("finalAnswer")
+
+    if not all([dataset_id, dataset_name, conversation_id, question, final_answer_data]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing required fields: datasetId, datasetName, conversationId, question, finalAnswer"
+        )
+
+    try:
+        final_answer = FinalAnswerResponse(**final_answer_data)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid finalAnswer format: {str(e)}"
+        )
+
+    logger.info(f"Manual report creation for dataset {dataset_id}")
+
+    report_id = reports_storage.save_report(
+        dataset_id=dataset_id,
+        dataset_name=dataset_name,
+        conversation_id=conversation_id,
+        question=question,
+        final_answer=final_answer
+    )
+
+    if not report_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save report"
+        )
+
+    return {"id": report_id}
 
 
 @app.post("/datasets/{dataset_id}/ingest", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
