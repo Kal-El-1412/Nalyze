@@ -376,14 +376,25 @@ class ChatOrchestrator:
             # Check if we've already asked for analysis type in this conversation
             if state_manager.has_asked_clarification(request.conversationId, "set_analysis_type"):
                 logger.warning("Already asked for analysis_type - not asking again")
-                # We already asked once, return helpful message
-                state = state_manager.get_state(request.conversationId)
-                context = state.get("context", {})
-                audit = await self._create_audit_metadata(request, context)
-                return FinalAnswerResponse(
-                    summaryMarkdown="I'm not sure how to help with that. Try asking about trends, categories, outliers, row counts, or data quality. Or enable AI Assist for more flexible queries.",
-                    tables=[],
-                    audit=audit
+                # Don't return a canned summary - just ask again with different phrasing
+                return NeedsClarificationResponse(
+                    question="I'm not sure what kind of analysis you need. Please choose one:",
+                    choices=[
+                        "Trends over time",
+                        "Top categories",
+                        "Find outliers",
+                        "Count rows",
+                        "Check data quality"
+                    ],
+                    intent="set_analysis_type",
+                    routing_metadata=self._create_routing_metadata(
+                        routing_decision="clarification_needed",
+                        deterministic_confidence=confidence,
+                        deterministic_match=None,
+                        openai_invoked=False,
+                        safe_mode=request.safeMode,
+                        privacy_mode=request.privacyMode
+                    )
                 )
 
             # Mark that we're asking for analysis_type
@@ -742,11 +753,11 @@ class ChatOrchestrator:
             audit_shared.append("safe_mode_no_raw_rows")
 
         if not request.resultsContext or not request.resultsContext.results:
-            audit = await self._create_audit_metadata(request, context)
-            return FinalAnswerResponse(
-                summaryMarkdown="No results to analyze.",
-                tables=[],
-                audit=audit
+            # Guard: Cannot generate final answer without query results
+            logger.error("Attempted to generate final_answer without resultsContext")
+            raise ValueError(
+                "Cannot generate final answer without query results. "
+                "Queries must be executed first via /queries/execute endpoint."
             )
 
         results = request.resultsContext.results
