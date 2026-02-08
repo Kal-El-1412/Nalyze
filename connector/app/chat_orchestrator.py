@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, List, Optional
 from openai import OpenAI
 from app.config import config
 from app.storage import storage
