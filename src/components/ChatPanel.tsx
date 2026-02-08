@@ -286,7 +286,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm leading-relaxed flex-1">{message.content}</p>
               {isAnswered && (
-                <span className="ml-3 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                <span className="ml-3 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-medium">
                   <Check className="w-3.5 h-3.5" />
                   Answered
                 </span>
@@ -300,39 +300,39 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                   disabled={isAnswered}
                   className={`block w-full text-left px-4 py-2 border rounded-lg transition-all text-sm font-medium ${
                     isAnswered
-                      ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-white border-slate-200 hover:border-emerald-500 hover:bg-emerald-50'
+                      ? 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                      : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950 dark:hover:border-emerald-600 text-slate-900 dark:text-slate-100'
                   }`}
                 >
                   {choice}
                 </button>
               ))}
               {message.clarificationData?.allowFreeText && !isAnswered && (
-                <div className="pt-2 border-t border-slate-200">
-                  <p className="text-xs text-slate-500 mb-2">Or type your own response</p>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Or type your own response</p>
                 </div>
               )}
             </div>
             {canSaveDefault && !isAnswered && (
-              <div className="mt-3 pt-3 border-t border-slate-200">
+              <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <button
                     onClick={() => setSaveAsDefaultMap(prev => ({ ...prev, [message.id]: !saveAsDefault }))}
                     className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
                       saveAsDefault
                         ? 'bg-emerald-500 border-emerald-500'
-                        : 'bg-white border-slate-300 group-hover:border-emerald-400'
+                        : 'bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700 group-hover:border-emerald-400'
                     }`}
                   >
                     {saveAsDefault && <Check className="w-3 h-3 text-white" />}
                   </button>
-                  <span className="text-xs text-slate-600 group-hover:text-slate-900">
+                  <span className="text-xs text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100">
                     Use this as default for <span className="font-semibold">{datasetName}</span>
                   </span>
                 </label>
               </div>
             )}
-            <p className="text-xs mt-3 text-slate-500">{formatTimestamp(message.timestamp)}</p>
+            <p className="text-xs mt-3 text-slate-500 dark:text-slate-400">{formatTimestamp(message.timestamp)}</p>
           </div>
         </div>
       );
@@ -344,26 +344,26 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <Bot className="w-5 h-5 text-white" />
           </div>
-          <div className="max-w-2xl rounded-2xl px-4 py-3 bg-amber-50 text-amber-900 border border-amber-200">
+          <div className="max-w-2xl rounded-2xl px-4 py-3 bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-100 border border-amber-200 dark:border-amber-800">
             <div className="flex items-center gap-3 mb-2">
               <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
               <p className="text-sm font-medium">{message.content}</p>
             </div>
             {message.queriesData && message.queriesData.length > 0 && (
               <div className="mt-3 space-y-2">
-                <div className="flex items-center gap-2 text-xs text-amber-700">
+                <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                   <Code className="w-4 h-4" />
                   <span className="font-medium">Queries to execute:</span>
                 </div>
                 {message.queriesData.map((query, idx) => (
                   <div key={idx} className="bg-white/50 dark:bg-slate-900/50 rounded px-3 py-2 border border-amber-200 dark:border-amber-700">
                     <p className="text-xs font-medium text-amber-900 dark:text-amber-200">{query.name}</p>
-                    <p className="text-xs text-amber-700 font-mono mt-1">{query.sql}</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 font-mono mt-1">{query.sql}</p>
                   </div>
                 ))}
               </div>
             )}
-            <p className="text-xs mt-3 text-amber-600">{formatTimestamp(message.timestamp)}</p>
+            <p className="text-xs mt-3 text-amber-600 dark:text-amber-400">{formatTimestamp(message.timestamp)}</p>
           </div>
         </div>
       );
@@ -390,7 +390,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             className={`rounded-xl px-4 py-2.5 ${
               message.type === 'user'
                 ? 'bg-emerald-500 text-white'
-                : 'bg-slate-100 text-slate-900'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
             }`}
           >
             <div className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -400,7 +400,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
           <div className="flex items-center gap-2 mt-1 px-2">
             <span
               className={`text-xs ${
-                message.type === 'user' ? 'text-slate-500' : 'text-slate-500'
+                message.type === 'user' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               {formatTimestamp(message.timestamp)}
@@ -408,20 +408,20 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleCopyMessage(message)}
-                className="p-1 hover:bg-slate-200 rounded transition-colors"
+                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                 title="Copy message"
               >
                 {copiedMessageId === message.id ? (
                   <span className="text-xs text-emerald-600 font-medium">Copied!</span>
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 )}
               </button>
               {onTogglePin && (
                 <button
                   onClick={() => onTogglePin(message.id)}
-                  className={`p-1 hover:bg-slate-200 rounded transition-colors ${
-                    message.pinned ? 'text-amber-600' : 'text-slate-500'
+                  className={`p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors ${
+                    message.pinned ? 'text-amber-600' : 'text-slate-500 dark:text-slate-400'
                   }`}
                   title={message.pinned ? 'Unpin message' : 'Pin message'}
                 >
@@ -430,10 +430,10 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
               )}
               <button
                 onClick={() => handleExportMessage(message)}
-                className="p-1 hover:bg-slate-200 rounded transition-colors"
+                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                 title="Export message"
               >
-                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               </button>
             </div>
           </div>
@@ -499,7 +499,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
         </div>
       )}
 
-      <div className="p-4 border-t border-slate-200 bg-slate-50">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
         {activeDataset && catalog && datasetName && onShowDatasetSummary && (
           <div className="mb-3 space-y-2">
             <DatasetSummaryCard
@@ -510,12 +510,12 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
               safeMode={safeMode}
             />
             {safeMode && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-blue-900 mb-1">Safe Mode Active</p>
-                    <p className="text-xs text-blue-800 leading-relaxed">
+                    <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">Safe Mode Active</p>
+                    <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
                       Only aggregated queries allowed. Queries must use COUNT, SUM, AVG, MIN, MAX, or GROUP BY. Raw row data cannot be accessed.
                     </p>
                   </div>
@@ -524,8 +524,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             )}
             <div className={`border rounded-lg p-3 ${
               aiAssist
-                ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200'
-                : 'bg-slate-50 border-slate-200'
+                ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950 dark:to-purple-950 border-violet-200 dark:border-violet-800'
+                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
             }`}>
               <div className="flex items-start gap-2">
                 <Sparkles className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
@@ -534,18 +534,18 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <p className={`text-xs font-semibold ${
-                      aiAssist ? 'text-violet-900' : 'text-slate-700'
+                      aiAssist ? 'text-violet-900 dark:text-violet-100' : 'text-slate-700 dark:text-slate-200'
                     }`}>AI Assist Status</p>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded ${
                       aiAssist
                         ? 'bg-violet-500 text-white'
-                        : 'bg-slate-300 text-slate-700'
+                        : 'bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
                     }`}>
                       {aiAssist ? 'ON' : 'OFF'}
                     </span>
                   </div>
                   <p className={`text-xs leading-relaxed ${
-                    aiAssist ? 'text-violet-800' : 'text-slate-600'
+                    aiAssist ? 'text-violet-800 dark:text-violet-200' : 'text-slate-600 dark:text-slate-300'
                   }`}>
                     {aiAssist
                       ? 'OpenAI intent extraction enabled. Can understand complex natural language queries.'
@@ -580,7 +580,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                       title={template.description}
                     >
                       <div className="flex items-start gap-2.5">
-                        <div className={`mt-0.5 p-1.5 rounded-lg ${template.color}`}>
+                        <div className={`mt-0.5 p-1.5 rounded-lg ${template.color} dark:bg-opacity-20`}>
                           <template.icon className="w-3.5 h-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -597,8 +597,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                     </button>
                   ))}
                 </div>
-                <div className="p-2 border-t border-slate-200 bg-slate-50">
-                  <p className="text-xs text-slate-500 text-center">
+                <div className="p-2 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
                     Templates auto-fill based on your dataset schema
                   </p>
                 </div>
@@ -618,7 +618,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             className={`flex items-center gap-2 px-4 py-3 rounded-lg border transition-all duration-200 ${
               aiAssist
                 ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-violet-600 shadow-md'
-                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
             }`}
             title={`AI Assist: ${aiAssist ? 'ON' : 'OFF'}`}
           >
@@ -627,7 +627,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             <span className={`text-xs font-bold px-2 py-0.5 rounded ${
               aiAssist
                 ? 'bg-white/20'
-                : 'bg-slate-100'
+                : 'bg-slate-100 dark:bg-slate-800'
             }`}>
               {aiAssist ? 'ON' : 'OFF'}
             </span>
