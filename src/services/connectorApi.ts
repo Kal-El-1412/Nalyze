@@ -723,9 +723,29 @@ class ConnectorAPI {
 
   getMockChatResponse(message: string, hasResultsContext: boolean = false): ChatResponse {
     if (hasResultsContext) {
+      // Generate a dynamic summary based on the returned tables
+      // (Demo mode: use simple heuristics so it feels responsive to the question)
+      const summaryFromTables = (() => {
+        // Try to detect row_count table result
+        // Expected shape from /queries/execute: results[0].rows[0][0]
+        // But in demo flow, we don't have direct access to those results here,
+        // so keep this summary generic-but-grounded.
+        // The UI tables pane will still show the row_count value.
+        if (message.toLowerCase().includes('row') || message.toLowerCase().includes('count')) {
+          return '## Row count\n\nI counted the total number of rows in your dataset. See the **Tables** tab for the exact value.';
+        }
+        if (message.toLowerCase().includes('categor')) {
+          return '## Category analysis\n\nI computed category totals and ranked the largest groups. See the **Tables** tab for the breakdown.';
+        }
+        if (message.toLowerCase().includes('trend')) {
+          return '## Trend analysis\n\nI aggregated values over time and calculated changes between periods. See the **Tables** tab for the time series.';
+        }
+        return '## Analysis complete\n\nI ran the requested queries and summarized the results. See the **Tables** tab for the outputs.';
+      })();
+
       return {
         type: 'final_answer',
-        summaryMarkdown: '## Analysis Complete\n\nBased on the query results, here are the key findings:\n\n- Dataset contains diverse data patterns\n- Statistical analysis shows normal distribution\n- No significant anomalies detected in the processed subset',
+        summaryMarkdown: summaryFromTables,
         tables: [
           {
             name: 'Summary Statistics',
@@ -826,16 +846,27 @@ class ConnectorAPI {
       };
     }
 
+    // Row count
+    if (message.toLowerCase().includes('row count') || message.toLowerCase().includes('count rows') || message.toLowerCase().includes('how many rows')) {
+      return {
+        type: 'run_queries',
+        queries: [
+          {
+            name: 'row_count',
+            sql: 'SELECT COUNT(*) AS row_count FROM data',
+          },
+        ],
+        explanation: 'Counting total rows in the dataset.',
+      };
+    }
+
     return {
-      type: 'run_queries',
-      queries: [
-        {
-          name: 'General Analysis',
-          sql: 'SELECT * FROM data LIMIT 100',
-        },
-      ],
-      explanation: 'Running initial data exploration query.',
-    };
+      type: 'needs_clarification',
+      question: 'What analysis would you like to run?',
+      choices: ['Row count', 'Top categories', 'Trend'],
+      allowFreeText: true,
+      intent: 'set_analysis_type',
+    } as any;
   }
 
   getMockQueryResults(): ExecuteQueriesResponse {
