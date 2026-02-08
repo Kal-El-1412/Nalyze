@@ -286,7 +286,12 @@ export default function Settings() {
             </label>
             <select
               value={themePreference}
-              onChange={(e) => setThemePreference(e.target.value as any)}
+              onChange={(e) => {
+                const next = e.target.value as 'system' | 'light' | 'dark';
+                setThemePreference(next);
+                localStorage.setItem('themePreference', next);
+                window.dispatchEvent(new Event('themeChange'));
+              }}
               className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
             >
               <option value="system">System</option>
