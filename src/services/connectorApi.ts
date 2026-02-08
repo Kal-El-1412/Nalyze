@@ -1,3 +1,5 @@
+import { diagnostics } from './diagnostics';
+
 export interface HealthResponse {
   status: string;
   version: string;
@@ -540,12 +542,40 @@ class ConnectorAPI {
       const privacyMode = this.getPrivacyMode();
       const safeMode = this.getSafeMode();
       const aiAssist = this.getAiAssist();
-      const requestWithPrivacy = {
-        ...request,
-        privacyMode,
-        safeMode,
-        aiAssist,
-      };
+
+      // Normalize the request to match backend contract
+      let normalizedPayload: any;
+
+      if (request.intent !== undefined) {
+        // Intent-based request: only include intent/value fields
+        normalizedPayload = {
+          datasetId: request.datasetId,
+          conversationId: request.conversationId,
+          intent: request.intent,
+          value: request.value,
+          privacyMode,
+          safeMode,
+          aiAssist,
+          resultsContext: request.resultsContext,
+        };
+      } else if (request.message !== undefined) {
+        // Message-based request: only include message field
+        normalizedPayload = {
+          datasetId: request.datasetId,
+          conversationId: request.conversationId,
+          message: request.message,
+          privacyMode,
+          safeMode,
+          aiAssist,
+          resultsContext: request.resultsContext,
+          defaultsContext: request.defaultsContext,
+        };
+      } else {
+        // Neither intent nor message present - throw error
+        const errorMsg = 'Invalid chat request: must provide either "message" or "intent" field';
+        diagnostics.error('Chat API', errorMsg, JSON.stringify(request, null, 2));
+        throw new Error(errorMsg);
+      }
 
       const response = await fetch(url, {
         method,
@@ -553,11 +583,21 @@ class ConnectorAPI {
           'Content-Type': 'application/json',
           ...this.getPrivacyHeaders(),
         },
-        body: JSON.stringify(requestWithPrivacy),
+        body: JSON.stringify(normalizedPayload),
       });
 
       if (!response.ok) {
         const error = await this.parseError(response, method, url);
+
+        // Log 422 errors to diagnostics with full response body
+        if (response.status === 422) {
+          diagnostics.error(
+            'Chat API Validation',
+            `422 Unprocessable Entity: ${error.message}`,
+            `Request: ${JSON.stringify(normalizedPayload, null, 2)}\n\nResponse: ${error.raw || 'No response body'}`
+          );
+        }
+
         return { success: false, error };
       }
 
