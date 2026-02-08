@@ -63,23 +63,36 @@ class ResultsSummarizer:
         audit: Dict[str, Any],
         flags: Dict[str, bool]
     ) -> str:
-        """Summarize row count analysis"""
+        """Summarize row count analysis with actual count from results"""
         if not tables or len(tables) == 0:
             return self._error_no_results()
 
         table = tables[0]
         rows = table.get("rows", [])
+        columns = table.get("columns", [])
 
         if not rows or len(rows) == 0:
             return "**Row count:** Unable to determine (no data returned)"
 
-        # Extract count from first row, first column
-        count = rows[0][0] if len(rows[0]) > 0 else 0
+        # Try to find row_count column by name (case-insensitive)
+        count = None
+        cols_lower = [c.lower() for c in columns] if columns else []
 
+        if "row_count" in cols_lower:
+            idx = cols_lower.index("row_count")
+            count = rows[0][idx] if len(rows[0]) > idx else None
+        elif cols_lower and len(rows[0]) > 0:
+            # Fallback: use first column
+            count = rows[0][0]
+
+        if count is None:
+            return "**Row count:** Unable to determine (no data in result)"
+
+        # Format the summary
         if count == 0:
-            return "**Row count:** 0 rows (dataset is empty)"
+            return "## Row count\n\nThis dataset is empty (0 rows)."
         else:
-            return f"**Row count:** {count:,} rows"
+            return f"## Row count\n\nThis dataset has **{count:,}** rows."
 
     def _summarize_trend(
         self,
