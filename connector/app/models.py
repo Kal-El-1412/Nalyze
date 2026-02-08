@@ -55,18 +55,6 @@ class QueryResponse(BaseModel):
     execution_time_ms: float
 
 
-class ChatRequest(BaseModel):
-    dataset_id: str
-    message: str
-    conversation_history: Optional[List[Dict[str, str]]] = Field(default_factory=list)
-
-
-class ChatResponse(BaseModel):
-    message: str
-    sql: Optional[str]
-    has_query: bool
-
-
 class QueryResultContext(BaseModel):
     name: str
     columns: List[str]
@@ -88,6 +76,7 @@ class ChatOrchestratorRequest(BaseModel):
     safeMode: Optional[bool] = False
     aiAssist: Optional[bool] = False
     resultsContext: Optional[ResultsContext] = None
+    defaultsContext: Optional[Dict[str, Any]] = None
 
     def __init__(self, **data):
         super().__init__(**data)

@@ -472,8 +472,16 @@ async def get_pii_info(dataset_id: str):
 
 @app.post("/chat")
 async def chat(request_data: Request):
+    """
+    Unified chat endpoint:
+    - If message is provided => process user query
+    - If intent/value provided => process clarification response
+
+    Delegates all processing to chat_orchestrator.
+    """
     body = await request_data.json()
 
+    # Extract mode settings from body or headers
     privacy_mode = body.get("privacyMode")
     if privacy_mode is None:
         privacy_header = request_data.headers.get("X-Privacy-Mode", "on")
@@ -492,7 +500,15 @@ async def chat(request_data: Request):
     body["privacyMode"] = privacy_mode
     body["safeMode"] = safe_mode
     body["aiAssist"] = ai_assist
-    request = ChatOrchestratorRequest(**body)
+
+    # Validate request contract
+    try:
+        request = ChatOrchestratorRequest(**body)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
 
     logger.info("=" * 80)
     logger.info(f"📨 /chat endpoint received request:")
@@ -502,158 +518,47 @@ async def chat(request_data: Request):
     logger.info(f"   value: {request.value}")
     logger.info(f"   message: {request.message[:50] if request.message else None}")
     logger.info(f"   hasResultsContext: {request.resultsContext is not None}")
+    logger.info(f"   hasDefaultsContext: {request.defaultsContext is not None}")
     logger.info(f"   privacyMode: {request.privacyMode}")
     logger.info(f"   safeMode: {request.safeMode}")
     logger.info(f"   aiAssist: {request.aiAssist}")
     logger.info("=" * 80)
 
     try:
-        if request.intent:
-            return await handle_intent(request)
-        else:
-            return await handle_message(request)
+        # Delegate to orchestrator - it handles all routing logic
+        response = await chat_orchestrator.process(request)
+
+        # If final answer, attempt to save report
+        if isinstance(response, FinalAnswerResponse):
+            try:
+                dataset = await storage.get_dataset(request.datasetId)
+                dataset_name = dataset.get("name", "Unknown") if dataset else "Unknown"
+
+                report_id = reports_local_storage.save_report(
+                    dataset_id=request.datasetId,
+                    dataset_name=dataset_name,
+                    conversation_id=request.conversationId,
+                    question=request.message or "",
+                    final_answer=response
+                )
+
+                if report_id:
+                    response.audit.reportId = report_id
+                    logger.info(f"Report saved with ID: {report_id}")
+
+            except Exception as e:
+                logger.error(f"Failed to save report: {e}", exc_info=True)
+
+        return response
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Chat processing error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chat processing failed: {str(e)}"
+            detail=str(e)
         )
-
-
-async def handle_intent(request: ChatOrchestratorRequest):
-    logger.info(f"Handling intent: {request.intent} = {request.value}")
-
-    state = state_manager.get_state(request.conversationId)
-    logger.info(f"[BEFORE UPDATE] State context: {state.get('context', {})}")
-
-    intent_field_map = {
-        "set_analysis_type": "analysis_type",
-        "set_time_period": "time_period",
-        "set_metric": "metric",
-        "set_dimension": "dimension",
-        "set_filter": "filter",
-        "set_grouping": "grouping",
-        "set_visualization": "visualization_type"
-    }
-
-    field_name = intent_field_map.get(request.intent)
-    if not field_name:
-        field_name = request.intent.replace("set_", "")
-
-    # Normalize user-friendly choice text to internal values
-    value = request.value
-    if request.intent == "set_analysis_type":
-        # Map user-friendly analysis type names to internal values
-        analysis_type_map = {
-            "Trends over time": "trend",
-            "Top categories": "top_categories",
-            "Find outliers": "outliers",
-            "Count rows": "row_count",
-            "Check data quality": "data_quality",
-            # Also support lowercase versions
-            "trends over time": "trend",
-            "top categories": "top_categories",
-            "find outliers": "outliers",
-            "count rows": "row_count",
-            "check data quality": "data_quality",
-        }
-        value = analysis_type_map.get(value, value)
-
-    if request.intent.startswith("set_"):
-        update_data = {field_name: value}
-    else:
-        update_data = {request.intent: value}
-
-    logger.info(f"Update data: {update_data}")
-
-    if "context" not in state:
-        state["context"] = {}
-
-    state["context"].update(update_data)
-    logger.info(f"[AFTER MERGE] Merged context: {state['context']}")
-
-    state_manager.update_state(request.conversationId, context=state["context"])
-    logger.info(f"[AFTER PERSIST] Called update_state")
-
-    updated_state = state_manager.get_state(request.conversationId)
-    context = updated_state.get("context", {})
-    logger.info(f"[AFTER RELOAD] Reloaded context: {context}")
-
-    message = f"Updated {field_name.replace('_', ' ')} to '{request.value}'"
-
-    logger.info(f"State updated for conversation {request.conversationId}: {field_name} = {request.value}")
-
-    # Delegate next step entirely to orchestrator
-    response = await chat_orchestrator.process(request)
-
-    if isinstance(response, FinalAnswerResponse):
-        await save_report_from_response(request, response, context)
-
-    return response
-
-
-async def handle_message(request: ChatOrchestratorRequest):
-    """
-    Handle message by delegating all routing logic to chat_orchestrator.
-
-    This function has exactly one responsibility: orchestrate the flow.
-    All routing decisions (deterministic, AI, clarifications) happen in chat_orchestrator.py.
-    """
-    logger.info(f"[handle_message] conversationId={request.conversationId}, hasResultsContext={request.resultsContext is not None}")
-
-    # Load state/context for logging and report generation
-    state = state_manager.get_state(request.conversationId)
-    context = state.get("context", {})
-
-    logger.info(f"[handle_message] Retrieved context: {context}")
-    logger.info(f"[handle_message] analysis_type present: {'analysis_type' in context}")
-    logger.info(f"[handle_message] time_period present: {'time_period' in context}")
-
-    # resultsContext short-circuit: if queries were already executed, generate final answer
-    if request.resultsContext:
-        logger.info(f"[handle_message] resultsContext present - calling orchestrator for final answer")
-        response = await chat_orchestrator.process(request)
-
-        if isinstance(response, FinalAnswerResponse):
-            await save_report_from_response(request, response, context)
-
-        return response
-
-    # No resultsContext: delegate ALL routing and clarification logic to orchestrator
-    logger.info(f"[handle_message] No resultsContext - delegating to orchestrator for routing")
-    response = await chat_orchestrator.process(request)
-
-    # Save report if we got a final answer (orchestrator may generate one without resultsContext)
-    if isinstance(response, FinalAnswerResponse):
-        await save_report_from_response(request, response, context)
-
-    return response
-
-
-async def save_report_from_response(request: ChatOrchestratorRequest, response: FinalAnswerResponse, context: dict):
-    try:
-        # Get dataset name for the report
-        dataset = await storage.get_dataset(request.datasetId)
-        dataset_name = dataset.get("name", "Unknown") if dataset else "Unknown"
-
-        # Save report using local storage
-        report_id = reports_local_storage.save_report(
-            dataset_id=request.datasetId,
-            dataset_name=dataset_name,
-            conversation_id=request.conversationId,
-            question=request.message or "",
-            final_answer=response
-        )
-
-        # Set reportId in audit metadata if report was saved
-        if report_id:
-            response.audit.reportId = report_id
-            logger.info(f"Report saved with ID: {report_id} for conversation {request.conversationId}")
-        else:
-            logger.warning(f"Failed to save report for conversation {request.conversationId}")
-
-    except Exception as e:
-        logger.error(f"Failed to save report: {e}", exc_info=True)
 
 
 if __name__ == "__main__":
