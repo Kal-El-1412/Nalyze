@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, ChevronDown, Plus, RefreshCw, ShieldCheck, PlayCircle } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronDown, Plus, RefreshCw, ShieldCheck, PlayCircle, Sun, Moon, Monitor } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import DatasetsPanel from '../components/DatasetsPanel';
 import ReportsPanel from '../components/ReportsPanel';
@@ -88,6 +88,17 @@ export default function AppLayout() {
   const [lastRoutingMetadata, setLastRoutingMetadata] = useState<any>(null);
   const [showDatasetSummary, setShowDatasetSummary] = useState(false);
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
+  const [themePreference, setThemePreference] = useState<'system' | 'light' | 'dark'>(
+    (localStorage.getItem('themePreference') as any) || 'system'
+  );
+
+  const cycleThemePreference = () => {
+    const current = (localStorage.getItem('themePreference') as any) || 'system';
+    const next = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system';
+    localStorage.setItem('themePreference', next);
+    setThemePreference(next);
+    window.dispatchEvent(new Event('themeChange'));
+  };
 
   useEffect(() => {
     const savedDemoMode = localStorage.getItem('demoMode');
@@ -233,7 +244,11 @@ export default function AppLayout() {
     };
     compute();
 
-    const handler = () => compute();
+    const handler = () => {
+      compute();
+      const pref = (localStorage.getItem('themePreference') as any) || 'system';
+      setThemePreference(pref);
+    };
     window.addEventListener('themeChange', handler);
     return () => window.removeEventListener('themeChange', handler);
   }, []);
@@ -1227,6 +1242,17 @@ export default function AppLayout() {
                   <ShieldCheck className="w-3.5 h-3.5" />
                   {privacySettings.allowSampleRows ? 'Samples Enabled' : 'Local-Only'}
                 </div>
+
+                <button
+                  onClick={cycleThemePreference}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  title="Cycle theme: System → Light → Dark"
+                >
+                  {themePreference === 'system' ? <Monitor className="w-3.5 h-3.5" /> : themePreference === 'light' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">
+                    {themePreference.charAt(0).toUpperCase() + themePreference.slice(1)}
+                  </span>
+                </button>
 
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
                   themeMode === 'dark'
