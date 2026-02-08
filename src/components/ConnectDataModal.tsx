@@ -47,23 +47,23 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-          <h2 className="text-2xl font-bold text-slate-900">Connect Data Source</h2>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Connect Data Source</h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6 space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
             <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-900">
+            <div className="text-sm text-blue-900 dark:text-blue-100">
               <p className="font-medium mb-1">Privacy-First Design</p>
-              <p className="text-blue-700">
+              <p className="text-blue-700 dark:text-blue-200">
                 Your data stays on your device. Files are processed locally by the connector.
               </p>
             </div>
@@ -71,7 +71,7 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-3">
                 Dataset Name
               </label>
               <input
@@ -79,21 +79,21 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
                 value={datasetName}
                 onChange={(e) => setDatasetName(e.target.value)}
                 placeholder="e.g., Sales Data 2024"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-950"
               />
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 Give your dataset a descriptive name
               </p>
             </div>
 
-            <div className="border-2 border-slate-200 rounded-xl p-5">
+            <div className="border-2 border-slate-200 dark:border-slate-800 rounded-xl p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 rounded-lg flex items-center justify-center">
                   <Upload className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-slate-900">Choose File</h3>
-                  <p className="text-sm text-slate-600">Select a file from your device</p>
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Choose File</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">Select a file from your device</p>
                 </div>
               </div>
 
@@ -107,26 +107,26 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
                 />
                 <label
                   htmlFor="file-upload"
-                  className="block cursor-pointer border-2 border-dashed border-slate-300 rounded-lg p-6 hover:border-emerald-500 hover:bg-emerald-50/50 transition-colors text-center"
+                  className="block cursor-pointer border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 transition-colors text-center"
                 >
-                  <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-slate-700 mb-1">
+                  <FileText className="w-8 h-8 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                     Click to browse files
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     CSV preferred • XLSX limited support
                   </p>
                 </label>
 
                 {selectedFile && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-emerald-900 truncate">
+                        <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100 truncate">
                           {selectedFile.name}
                         </p>
-                        <p className="text-xs text-emerald-700">
+                        <p className="text-xs text-emerald-700 dark:text-emerald-200">
                           {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                         </p>
                       </div>
@@ -138,7 +138,7 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
 
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
             >
               {showAdvanced ? (
                 <ChevronUp className="w-4 h-4" />
@@ -149,10 +149,10 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
             </button>
 
             {showAdvanced && (
-              <div className="border-2 border-slate-200 rounded-xl p-5 space-y-4 bg-slate-50">
+              <div className="border-2 border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4 bg-slate-50 dark:bg-slate-950">
                 <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-slate-600">
+                  <Info className="w-4 h-4 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
                     For advanced users: Enter the full path to a file on your system. The connector must have read access to this location.
                   </p>
                 </div>
@@ -163,7 +163,7 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
                     className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                       uploadMode === 'upload'
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     Upload File
@@ -173,7 +173,7 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
                     className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                       uploadMode === 'path'
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     File Path
@@ -182,7 +182,7 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
 
                 {uploadMode === 'path' && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                       File Path
                     </label>
                     <input
@@ -190,9 +190,9 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
                       value={manualPath}
                       onChange={(e) => setManualPath(e.target.value)}
                       placeholder="/path/to/your/data.csv"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white font-mono text-sm"
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-950 font-mono text-sm"
                     />
-                    <p className="text-xs text-slate-500 mt-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                       Example: /Users/name/Documents/data.csv or C:\Users\name\Documents\data.csv
                     </p>
                   </div>
@@ -202,10 +202,10 @@ export default function ConnectDataModal({ isOpen, onClose, onConnect }: Connect
           </div>
         </div>
 
-        <div className="flex gap-3 p-6 border-t border-slate-200 bg-slate-50 sticky bottom-0">
+        <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 sticky bottom-0">
           <button
             onClick={onClose}
-            className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-white transition-colors"
+            className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors"
           >
             Cancel
           </button>

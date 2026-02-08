@@ -14,27 +14,27 @@ export default function DisconnectedBanner({
   isRetrying,
 }: DisconnectedBannerProps) {
   return (
-    <div className="bg-amber-50 border-b border-amber-200">
+    <div className="bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800">
       <div className="px-6 py-4">
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-amber-900">Connector Disconnected</h3>
+              <h3 className="font-semibold text-amber-900 dark:text-amber-100">Connector Disconnected</h3>
               <button
                 onClick={onDismiss}
-                className="p-1 hover:bg-amber-100 rounded transition-colors"
+                className="p-1 hover:bg-amber-100 dark:hover:bg-amber-900 rounded transition-colors"
               >
-                <X className="w-4 h-4 text-amber-700" />
+                <X className="w-4 h-4 text-amber-700 dark:text-amber-300" />
               </button>
             </div>
-            <p className="text-sm text-amber-800 mb-3">
+            <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
               Unable to connect to the data connector. The app is running in demo mode with mock data.
             </p>
-            <div className="bg-white border border-amber-200 rounded-lg p-3 mb-3">
-              <p className="text-xs font-semibold text-amber-900 mb-2">Troubleshooting Steps:</p>
-              <ol className="text-xs text-amber-800 space-y-1 list-decimal list-inside">
-                <li>Ensure the connector is running on <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900">{connectorUrl}</code></li>
+            <div className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-3">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-100 mb-2">Troubleshooting Steps:</p>
+              <ol className="text-xs text-amber-800 dark:text-amber-200 space-y-1 list-decimal list-inside">
+                <li>Ensure the connector is running on <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded text-amber-900 dark:text-amber-100">{connectorUrl}</code></li>
                 <li>Check if the connector port is accessible and not blocked by firewall</li>
                 <li>Verify the connector URL in Settings matches your setup</li>
                 <li>Try restarting the connector service</li>

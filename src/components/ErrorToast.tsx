@@ -19,7 +19,7 @@ export default function ErrorToast({ error, onClose }: ErrorToastProps) {
   }, [onClose]);
 
   return (
-    <div className="fixed bottom-6 right-6 bg-white rounded-xl shadow-2xl border-2 border-red-200 max-w-md z-50 animate-slide-up">
+    <div className="fixed bottom-6 right-6 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border-2 border-red-200 dark:border-red-900/40 max-w-md z-50 animate-slide-up">
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0">
@@ -27,7 +27,7 @@ export default function ErrorToast({ error, onClose }: ErrorToastProps) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="text-sm font-semibold text-red-900">
+              <h3 className="text-sm font-semibold text-red-900 dark:text-red-100">
                 {(() => {
                   const url = (error.url || '').toLowerCase();
                   if (url.includes('/datasets/upload')) return 'Dataset Upload Failed';
@@ -46,21 +46,21 @@ export default function ErrorToast({ error, onClose }: ErrorToastProps) {
               </button>
             </div>
             <div className="space-y-1.5 text-xs">
-              <div className="flex items-center gap-2 text-slate-600">
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                 <span className="font-medium">{error.method}</span>
                 <span className="truncate">{error.url}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded font-mono font-medium">
+                <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded font-mono font-medium">
                   {error.status} {error.statusText}
                 </span>
               </div>
-              <p className="text-slate-700 mt-2">{error.message}</p>
+              <p className="text-slate-700 dark:text-slate-200 mt-2">{error.message}</p>
             </div>
             {error.raw && (
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1 mt-2 text-xs text-slate-600 hover:text-slate-900 transition-colors"
+                className="flex items-center gap-1 mt-2 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
               >
                 {expanded ? (
                   <ChevronDown className="w-3 h-3" />
@@ -71,7 +71,7 @@ export default function ErrorToast({ error, onClose }: ErrorToastProps) {
               </button>
             )}
             {expanded && error.raw && (
-              <pre className="mt-2 p-2 bg-slate-50 rounded text-xs font-mono overflow-x-auto max-h-32 border border-slate-200">
+              <pre className="mt-2 p-2 bg-slate-50 dark:bg-slate-950 rounded text-xs font-mono overflow-x-auto max-h-32 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
                 {error.raw}
               </pre>
             )}
@@ -81,7 +81,7 @@ export default function ErrorToast({ error, onClose }: ErrorToastProps) {
       <div className="px-4 pb-4">
         <button
           onClick={onClose}
-          className="w-full px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium rounded-lg transition-colors"
+          className="w-full px-3 py-2 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 text-sm font-medium rounded-lg transition-colors"
         >
           Dismiss
         </button>
