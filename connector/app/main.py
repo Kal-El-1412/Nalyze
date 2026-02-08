@@ -69,6 +69,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
+# CORS middleware MUST be added last so it becomes the outermost layer
+# This ensures CORS headers are added to ALL responses including 4xx/5xx errors
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
@@ -76,9 +81,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(RateLimitMiddleware)
 
 
 @app.exception_handler(Exception)

@@ -1,10 +1,13 @@
-# FIX-2: Fix Connector CORS with Regex Pattern
+# FIX-2: Fix Connector CORS with Regex Pattern + Middleware Order
 
 ## Status: ✅ COMPLETE
 
 ## Summary
 
-Replaced the CORS middleware configuration to use `allow_origin_regex` instead of `allow_origins` list. This properly handles localhost on any port and fixes CORS header issues in the browser.
+1. Replaced the CORS middleware configuration to use `allow_origin_regex` instead of `allow_origins` list
+2. **NEW:** Moved CORS middleware to be added LAST so it wraps ALL responses including errors
+
+This properly handles localhost on any port and ensures CORS headers are present on ALL responses (2xx, 4xx, 5xx).
 
 ## Problem
 
@@ -22,7 +25,9 @@ Changed from specific origin list to regex pattern matching, and disabled creden
 
 ### File Modified
 
-**connector/app/main.py** (lines 72-78)
+**connector/app/main.py** (lines 72-83)
+
+### Change 1: CORS Regex Pattern
 
 ### Before
 
@@ -53,7 +58,7 @@ app.add_middleware(
 - `allow_credentials=True` requires exact origin match
 - Didn't work reliably with Vite's dev server on random ports
 
-### After
+### After (Initial Fix)
 
 ```python
 app.add_middleware(
@@ -71,6 +76,54 @@ app.add_middleware(
 - ✅ Supports both `http://` and `https://`
 - ✅ No credentials requirement simplifies CORS
 - ✅ Works reliably with Vite, React, Tauri
+
+### Change 2: Middleware Order Fix (NEW)
+
+**Problem:** CORS headers were missing on error responses (4xx/5xx) because CORS middleware was added FIRST, making it the innermost layer.
+
+**Middleware execution order in FastAPI:**
+- Middlewares are processed in REVERSE order
+- First added = innermost layer (processes response last)
+- Last added = outermost layer (processes response first)
+
+**Before middleware order:**
+```python
+app = FastAPI(...)
+
+app.add_middleware(CORSMiddleware, ...)        # Added first = innermost ❌
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+```
+
+When error occurred:
+1. Request: RateLimitMiddleware → RequestLoggingMiddleware → CORSMiddleware → handler
+2. Error (4xx/5xx)
+3. Response: Skips CORS ❌ → RequestLoggingMiddleware → RateLimitMiddleware → client
+4. Result: No CORS headers on errors
+
+**After middleware order (FIXED):**
+```python
+app = FastAPI(...)
+
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
+# CORS middleware MUST be added last so it becomes the outermost layer
+# This ensures CORS headers are added to ALL responses including 4xx/5xx errors
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+Now when error occurs:
+1. Request: **CORSMiddleware** → RateLimitMiddleware → RequestLoggingMiddleware → handler
+2. Error (4xx/5xx)
+3. Response: RequestLoggingMiddleware → RateLimitMiddleware → **CORSMiddleware** ✅ → client
+4. Result: CORS headers present on ALL responses
 
 ## Regex Pattern Explanation
 
@@ -300,10 +353,12 @@ This configuration is NOT appropriate for:
 
 ## Acceptance Criteria
 
-✅ **Browser no longer logs missing CORS header on errors:**
-- Error responses include proper CORS headers
-- No browser console CORS errors
+✅ **Browser NEVER reports missing Access-Control-Allow-Origin (even on 4xx/5xx):**
+- CORS middleware wraps ALL responses (success and errors)
+- Error responses (404, 500, etc.) include proper CORS headers
+- No browser console CORS errors on any response
 - Errors properly visible in frontend
+- Frontend can read error details from failed requests
 
 ✅ **/datasets/upload works reliably from Vite/Tauri:**
 - File upload succeeds on any port
