@@ -539,9 +539,15 @@ class ConnectorAPI {
     const method = 'POST';
 
     try {
-      const privacyMode = this.getPrivacyMode();
-      const safeMode = this.getSafeMode();
-      const aiAssist = this.getAiAssist();
+      const privacyMode = request.privacyMode !== undefined ? request.privacyMode : this.getPrivacyMode();
+      const safeMode = request.safeMode !== undefined ? request.safeMode : this.getSafeMode();
+      const aiAssist = request.aiAssist !== undefined ? request.aiAssist : this.getAiAssist();
+
+      diagnostics.info(
+        'Chat API',
+        `Sending request to ${url}`,
+        `privacyMode=${privacyMode}, safeMode=${safeMode}, aiAssist=${aiAssist}\nrequest.aiAssist=${request.aiAssist}, localStorage=${this.getAiAssist()}`
+      );
 
       // Normalize the request to match backend contract
       let normalizedPayload: any;
@@ -577,6 +583,8 @@ class ConnectorAPI {
         throw new Error(errorMsg);
       }
 
+      diagnostics.info('Chat API', 'Sending fetch request...', JSON.stringify(normalizedPayload, null, 2));
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -585,6 +593,8 @@ class ConnectorAPI {
         },
         body: JSON.stringify(normalizedPayload),
       });
+
+      diagnostics.info('Chat API', `Received response: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const error = await this.parseError(response, method, url);
