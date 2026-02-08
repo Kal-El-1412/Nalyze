@@ -470,6 +470,20 @@ export default function AppLayout() {
       // Use intent from backend if provided, otherwise detect from question
       const intent = response.intent || detectIntentFromQuestion(response.question);
 
+      // Check if this exact same clarification was just asked
+      // Prevent duplicate clarification messages
+      const isDuplicate = messages.some(msg =>
+        msg.type === 'clarification' &&
+        msg.content === response.question &&
+        !msg.answered
+      );
+
+      if (isDuplicate) {
+        diagnostics.warning('Chat', 'Duplicate clarification detected', `Question: "${response.question}"`);
+        console.warn('Prevented duplicate clarification message:', response.question);
+        return;
+      }
+
       const clarificationMessage: Message = {
         id: Date.now().toString(),
         type: 'clarification',

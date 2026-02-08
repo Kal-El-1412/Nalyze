@@ -165,6 +165,49 @@ class ConversationStateManager:
             self.update_state(conversation_id, context=context)
             logger.info(f"Marked clarification '{clarification_type}' as asked for {conversation_id}")
 
+    def clear_clarification_tracking(self, conversation_id: str, clarification_type: str):
+        """
+        Clear a specific clarification from the asked list.
+        Used when the clarification has been answered.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            clarification_type: Type of clarification to clear
+        """
+        state = self.get_state(conversation_id)
+        context = state.get("context", {})
+        clarifications_asked = context.get("clarifications_asked", [])
+
+        if clarification_type in clarifications_asked:
+            clarifications_asked.remove(clarification_type)
+            context["clarifications_asked"] = clarifications_asked
+            self.update_state(conversation_id, context=context)
+            logger.info(f"Cleared clarification tracking for '{clarification_type}' in {conversation_id}")
+
+    def update_context(self, conversation_id: str, context_updates: Dict[str, Any]):
+        """
+        Update context fields for a conversation.
+        Automatically clears related clarification tracking when key fields are set.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            context_updates: Dictionary of context fields to update
+        """
+        # If analysis_type is being set, clear the related clarification tracking
+        if "analysis_type" in context_updates and context_updates["analysis_type"]:
+            logger.info(f"Setting analysis_type to '{context_updates['analysis_type']}' for {conversation_id}")
+            # Clear the clarification tracking since we now have the answer
+            self.clear_clarification_tracking(conversation_id, "set_analysis_type")
+
+        # If time_period is being set, clear the related clarification tracking
+        if "time_period" in context_updates and context_updates["time_period"]:
+            logger.info(f"Setting time_period to '{context_updates['time_period']}' for {conversation_id}")
+            self.clear_clarification_tracking(conversation_id, "set_time_period")
+
+        # Update the context
+        self.update_state(conversation_id, context=context_updates)
+        logger.debug(f"Updated context for {conversation_id}: {context_updates}")
+
     def _create_default_state(self, conversation_id: str) -> Dict[str, Any]:
         """
         Create default state structure for a new conversation.

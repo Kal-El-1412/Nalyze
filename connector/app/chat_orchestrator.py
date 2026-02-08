@@ -299,6 +299,11 @@ class ChatOrchestrator:
         state = state_manager.get_state(request.conversationId)
         context = state.get("context", {})
 
+        # Store original message if this is the first message in the conversation
+        if request.message and not state.get("original_message"):
+            state_manager.update_state(request.conversationId, original_message=request.message)
+            logger.info(f"Stored original message for conversation {request.conversationId}")
+
         if self._is_state_ready(context):
             if request.resultsContext:
                 return await self._generate_final_answer(request, catalog, context)
@@ -315,6 +320,13 @@ class ChatOrchestrator:
 
         # Check if AI Assist is enabled
         ai_assist = request.aiAssist if request.aiAssist is not None else False
+
+        # Special handling for "continue" messages - check if state already has analysis_type
+        if request.message.lower().strip() == "continue":
+            logger.info("Received 'continue' message - checking if state is ready")
+            if context.get("analysis_type"):
+                logger.info(f"State already has analysis_type='{context['analysis_type']}', generating SQL directly")
+                return await self._generate_sql_plan(request, catalog, context)
 
         # Try deterministic routing first (regardless of aiAssist setting)
         logger.info(f"Trying deterministic router for message: '{request.message[:50]}...'")
@@ -375,27 +387,18 @@ class ChatOrchestrator:
             logger.info("AI Assist is OFF - asking user to choose analysis type")
 
             # Check if we've already asked for analysis type in this conversation
-            if state_manager.has_asked_clarification(request.conversationId, "set_analysis_type"):
-                logger.warning("Already asked for analysis_type - not asking again")
-                # Don't return a canned summary - just ask again with different phrasing
-                return NeedsClarificationResponse(
-                    question="I'm not sure what kind of analysis you need. Please choose one:",
-                    choices=[
-                        "Trends over time",
-                        "Top categories",
-                        "Find outliers",
-                        "Count rows",
-                        "Check data quality"
-                    ],
-                    intent="set_analysis_type",
-                    routing_metadata=self._create_routing_metadata(
-                        routing_decision="clarification_needed",
-                        deterministic_confidence=confidence,
-                        deterministic_match=None,
-                        openai_invoked=False,
-                        safe_mode=request.safeMode,
-                        privacy_mode=request.privacyMode
-                    )
+            has_asked_before = state_manager.has_asked_clarification(request.conversationId, "set_analysis_type")
+
+            if has_asked_before:
+                logger.warning("Already asked for analysis_type in this conversation - preventing infinite loop")
+                # If we've asked twice, we need to stop the loop
+                # Return a helpful error message instead
+                state = state_manager.get_state(request.conversationId)
+                audit = await self._create_audit_metadata(request, state.get("context", {}))
+                return FinalAnswerResponse(
+                    summaryMarkdown="I'm having trouble understanding your request. Please try:\n\n1. Use the analysis templates below the chat box\n2. Or be more specific (e.g., 'count rows', 'show trends', 'find outliers')\n3. Or enable AI Assist in settings for better interpretation",
+                    tables=[],
+                    audit=audit
                 )
 
             # Mark that we're asking for analysis_type
