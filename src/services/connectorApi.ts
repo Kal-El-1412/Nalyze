@@ -332,6 +332,32 @@ class ConnectorAPI {
     };
   }
 
+  async testAiConnection(): Promise<{
+    status: 'connected' | 'error' | 'disabled';
+    message: string;
+    details: string;
+  } | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/test-ai-connection`, {
+        method: 'GET',
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error testing AI connection:', error);
+      return null;
+    }
+  }
+
   async checkHealth(retries: number = 2): Promise<HealthResponse | null> {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {

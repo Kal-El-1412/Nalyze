@@ -1054,11 +1054,50 @@ export default function AppLayout() {
                 privacyMode={privacyMode}
                 safeMode={safeMode}
                 aiAssist={aiAssist}
-                onAiAssistChange={(value) => {
+                onAiAssistChange={async (value) => {
                   setAiAssist(value);
                   localStorage.setItem('aiAssist', String(value));
                   window.dispatchEvent(new Event('aiAssistChange'));
                   diagnostics.info('Settings', `AI Assist turned ${value ? 'ON' : 'OFF'}`);
+
+                  if (value) {
+                    diagnostics.info('AI Connection', 'Testing OpenAI API connection...');
+                    const testResult = await connectorApi.testAiConnection();
+
+                    if (!testResult) {
+                      showError({
+                        status: 0,
+                        statusText: 'Network Error',
+                        url: '/test-ai-connection',
+                        method: 'GET',
+                        message: 'Could not reach backend to test AI connection',
+                      });
+                      diagnostics.error('AI Connection', 'Failed to reach backend');
+                    } else if (testResult.status === 'connected') {
+                      showToastMessage(testResult.message);
+                      diagnostics.info('AI Connection', `✓ ${testResult.message}`, testResult.details);
+                    } else if (testResult.status === 'error') {
+                      showError({
+                        status: 400,
+                        statusText: 'AI Configuration Error',
+                        url: '/test-ai-connection',
+                        method: 'GET',
+                        message: testResult.message,
+                        raw: testResult.details,
+                      });
+                      diagnostics.error('AI Connection', testResult.message, testResult.details);
+                    } else if (testResult.status === 'disabled') {
+                      showError({
+                        status: 400,
+                        statusText: 'AI Mode Disabled',
+                        url: '/test-ai-connection',
+                        method: 'GET',
+                        message: testResult.message,
+                        raw: testResult.details,
+                      });
+                      diagnostics.error('AI Connection', testResult.message, testResult.details);
+                    }
+                  }
                 }}
               />
             </div>

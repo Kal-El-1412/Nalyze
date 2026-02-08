@@ -117,6 +117,63 @@ async def health_check():
     )
 
 
+@app.get("/test-ai-connection")
+async def test_ai_connection():
+    """Test if OpenAI API connection is working"""
+    logger.info("AI connection test requested")
+
+    if not config.ai_mode:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "disabled",
+                "message": "AI mode is disabled in configuration",
+                "details": "Set AI_MODE=on in .env file to enable AI features"
+            }
+        )
+
+    if not config.openai_api_key:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "error",
+                "message": "OpenAI API key not configured",
+                "details": "Set OPENAI_API_KEY in connector/.env file"
+            }
+        )
+
+    try:
+        # Test OpenAI connection with a simple completion
+        import openai
+        client = openai.OpenAI(api_key=config.openai_api_key)
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "Test"}],
+            max_tokens=5
+        )
+
+        logger.info("OpenAI API connection test successful")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "connected",
+                "message": "OpenAI API is connected and working",
+                "details": f"Successfully connected using model: gpt-4o-mini"
+            }
+        )
+    except Exception as e:
+        logger.error(f"OpenAI API connection test failed: {str(e)}")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "error",
+                "message": "Failed to connect to OpenAI API",
+                "details": str(e)
+            }
+        )
+
+
 @app.get("/")
 async def root():
     return {
