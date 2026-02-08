@@ -1140,7 +1140,7 @@ export default function AppLayout() {
   const isConnectorReady = demoMode || connectorStatus === 'connected';
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Sidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
@@ -1149,7 +1149,7 @@ export default function AppLayout() {
       />
 
       <div className="flex-1 flex flex-col lg:flex-row">
-        <div className="w-full lg:w-80 bg-white border-r border-slate-200">
+        <div className="w-full lg:w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
           {activeSection === 'datasets' && (
             <DatasetsPanel
               datasets={datasets}
@@ -1190,7 +1190,7 @@ export default function AppLayout() {
               isRetrying={isRetrying}
             />
           )}
-          <div className="bg-white border-b border-slate-200 px-6 py-4">
+          <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
