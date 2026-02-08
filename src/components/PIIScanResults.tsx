@@ -38,11 +38,11 @@ const getTypeLabel = (type: string) => {
 
 const getConfidenceColor = (confidence: number) => {
   if (confidence >= 0.8) {
-    return 'bg-red-50 text-red-700 border-red-200';
+    return 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900/40';
   } else if (confidence >= 0.5) {
-    return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40';
   } else {
-    return 'bg-blue-50 text-blue-700 border-blue-200';
+    return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/40';
   }
 };
 
@@ -60,14 +60,14 @@ export default function PIIScanResults({ catalog, privacyMode = true }: PIIScanR
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+        <div className="w-10 h-10 bg-amber-50 dark:bg-amber-950 rounded-lg flex items-center justify-center">
           <ShieldAlert className="w-5 h-5 text-amber-600" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-slate-900">PII Scan Results</h3>
-          <p className="text-sm text-slate-600">Columns that may contain personal information</p>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">PII Scan Results</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Columns that may contain personal information</p>
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export default function PIIScanResults({ catalog, privacyMode = true }: PIIScanR
                   <div className="text-xs opacity-75">{getTypeLabel(column.type)}</div>
                 </div>
               </div>
-              <span className="text-xs font-medium uppercase px-2 py-1 bg-white/50 rounded">
+              <span className="text-xs font-medium uppercase px-2 py-1 bg-white/50 dark:bg-slate-900/50 rounded">
                 {getConfidenceLabel(column.confidence)}
               </span>
             </div>
@@ -98,15 +98,15 @@ export default function PIIScanResults({ catalog, privacyMode = true }: PIIScanR
 
       <div className={`mt-4 p-3 rounded-lg border ${
         privacyMode
-          ? 'bg-emerald-50 border-emerald-200'
-          : 'bg-amber-50 border-amber-200'
+          ? 'bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800'
+          : 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800'
       }`}>
         <div className="flex items-start gap-2">
           <ShieldCheck className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
             privacyMode ? 'text-emerald-600' : 'text-amber-600'
           }`} />
           <p className={`text-xs ${
-            privacyMode ? 'text-emerald-900' : 'text-amber-900'
+            privacyMode ? 'text-emerald-900 dark:text-emerald-100' : 'text-amber-900 dark:text-amber-100'
           }`}>
             <strong>Privacy Mode {privacyMode ? 'ON' : 'OFF'}:</strong>{' '}
             {privacyMode
