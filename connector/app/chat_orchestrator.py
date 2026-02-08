@@ -250,7 +250,7 @@ class ChatOrchestrator:
         self,
         request: ChatOrchestratorRequest,
         context: Dict[str, Any],
-        executed_queries: List[ExecutedQuery] = None
+        executed_queries: Optional[List[ExecutedQuery]] = None
     ) -> AuditMetadata:
         """Create audit metadata for final answer response"""
         from datetime import datetime
