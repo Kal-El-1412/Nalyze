@@ -394,7 +394,7 @@ export default function AppLayout() {
         } else {
           const errorDetails = `${ingestResult.error.method} ${ingestResult.error.url}\n${ingestResult.error.status} ${ingestResult.error.statusText}\n${ingestResult.error.message}`;
           diagnostics.error('Ingest', `Failed to ingest dataset: ${data.name}`, errorDetails);
-          showError(ingestResult.error);
+          displayError(ingestResult.error);
         }
 
         await loadDatasetsFromConnector();
@@ -404,7 +404,7 @@ export default function AppLayout() {
         const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
         diagnostics.error('Dataset Registration', `Failed to register dataset: ${data.name}`, errorDetails);
 
-        showError(result.error);
+        displayError(result.error);
 
         const newDataset: LocalDataset = {
           id: Date.now().toString(),
@@ -604,9 +604,18 @@ export default function AppLayout() {
     });
   };
 
-  const showError = (error: ApiError) => {
-    showError(error);
+  const displayError = (error: ApiError) => {
+    // show toast UI
+    setErrorToast(error);
 
+    // diagnostics log
+    diagnostics.error(
+      'Connector',
+      `${error.status} ${error.statusText}: ${error.message}`,
+      error.details ? JSON.stringify(error.details, null, 2) : undefined
+    );
+
+    // optional notifications
     if (notifications.errors) {
       const errorMessage = `${error.status} ${error.statusText}: ${error.message}`;
       notify('Connector Error', errorMessage);
@@ -702,7 +711,7 @@ export default function AppLayout() {
         } else {
           const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
           diagnostics.error('Query Execution', 'Failed to execute queries', errorDetails);
-          showError(result.error);
+          displayError(result.error);
 
           if (demoMode) {
             showToastMessage('Failed to execute queries. Using mock data.');
@@ -1259,7 +1268,7 @@ export default function AppLayout() {
                     const testResult = await connectorApi.testAiConnection();
 
                     if (!testResult) {
-                      showError({
+                      displayError({
                         status: 0,
                         statusText: 'Network Error',
                         url: '/test-ai-connection',
@@ -1271,7 +1280,7 @@ export default function AppLayout() {
                       showToastMessage(testResult.message);
                       diagnostics.info('AI Connection', `✓ ${testResult.message}`, testResult.details);
                     } else if (testResult.status === 'error') {
-                      showError({
+                      displayError({
                         status: 400,
                         statusText: 'AI Configuration Error',
                         url: '/test-ai-connection',
@@ -1281,7 +1290,7 @@ export default function AppLayout() {
                       });
                       diagnostics.error('AI Connection', testResult.message, testResult.details);
                     } else if (testResult.status === 'disabled') {
-                      showError({
+                      displayError({
                         status: 400,
                         statusText: 'AI Mode Disabled',
                         url: '/test-ai-connection',
