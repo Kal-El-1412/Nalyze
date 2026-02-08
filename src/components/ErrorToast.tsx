@@ -27,7 +27,17 @@ export default function ErrorToast({ error, onClose }: ErrorToastProps) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="text-sm font-semibold text-red-900">Dataset Registration Failed</h3>
+              <h3 className="text-sm font-semibold text-red-900">
+                {(() => {
+                  const url = (error.url || '').toLowerCase();
+                  if (url.includes('/datasets/upload')) return 'Dataset Upload Failed';
+                  if (url.includes('/datasets/register')) return 'Dataset Registration Failed';
+                  if (url.includes('/datasets/ingest')) return 'Dataset Ingest Failed';
+                  if (url.includes('/chat')) return 'Chat Request Failed';
+                  if (url.includes('/queries/execute')) return 'Query Execution Failed';
+                  return 'Connector Error';
+                })()}
+              </h3>
               <button
                 onClick={onClose}
                 className="flex-shrink-0 p-0.5 text-red-400 hover:text-red-600 rounded transition-colors"
