@@ -48,7 +48,7 @@ export interface QueryResult {
 
 export interface ChatRequest {
   datasetId: string;
-  conversationId: string;
+  conversationId?: string;
   message?: string;
   intent?: string;
   value?: any;
