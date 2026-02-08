@@ -179,8 +179,8 @@ export default function AppLayout() {
   const loadCatalog = async () => {
     if (!activeDataset) return;
 
-    // Skip backend call in Demo Mode
-    if (demoMode) {
+    const savedDemoMode = localStorage.getItem('demoMode') === 'true';
+    if (savedDemoMode || demoMode) {
       const mockCatalog = connectorApi.getMockCatalog();
       setCatalog(mockCatalog);
       return;
@@ -196,8 +196,8 @@ export default function AppLayout() {
   };
 
   const loadReports = async () => {
-    // Skip backend call in Demo Mode
-    if (demoMode) {
+    const savedDemoMode = localStorage.getItem('demoMode') === 'true';
+    if (savedDemoMode || demoMode) {
       setReports([]);
       return;
     }
@@ -244,7 +244,8 @@ export default function AppLayout() {
     setIsLoadingDatasets(true);
 
     try {
-      if (demoMode || connectorStatus === 'disconnected') {
+      const savedDemoMode = localStorage.getItem('demoMode') === 'true';
+      if (savedDemoMode || demoMode || connectorStatus === 'disconnected') {
         const mockDatasets = connectorApi.getMockDatasets().map((ds: Dataset) => ({
           id: ds.datasetId,
           name: ds.name,
@@ -365,6 +366,8 @@ export default function AppLayout() {
         setDatasets([...datasets, newDataset]);
         setActiveDataset(newDataset.id);
         setDemoMode(true);
+        localStorage.setItem('demoMode', 'true');
+        window.dispatchEvent(new Event('demoModeChange'));
         showToastMessage('⚠️ Using demo mode with mock data');
       }
     } else if (type === 'cloud' && data.file) {
