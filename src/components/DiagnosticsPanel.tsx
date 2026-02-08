@@ -299,18 +299,18 @@ ${event.details ? `Details: ${event.details}` : ''}
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-6 border-b border-slate-200">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950">
+      <div className="p-6 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Diagnostics</h2>
-            <p className="text-sm text-slate-600 mt-1">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Diagnostics</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
               Test connector endpoints and view system logs
             </p>
           </div>
           <button
             onClick={copyDiagnostics}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <Copy className="w-4 h-4" />
             Copy Diagnostics
@@ -323,7 +323,7 @@ ${event.details ? `Details: ${event.details}` : ''}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === 'tests'
                 ? 'bg-emerald-500 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -336,7 +336,7 @@ ${event.details ? `Details: ${event.details}` : ''}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === 'logs'
                 ? 'bg-emerald-500 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -355,18 +355,18 @@ ${event.details ? `Details: ${event.details}` : ''}
       {activeTab === 'tests' && (
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2 mb-3">
-                <Server className="w-5 h-5 text-slate-600" />
-                <h3 className="font-semibold text-slate-900">Connector Information</h3>
+                <Server className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100">Connector Information</h3>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Base URL:</span>
-                  <span className="font-mono text-slate-900">{connectorApi.getConnectorUrl()}</span>
+                  <span className="text-slate-600 dark:text-slate-300">Base URL:</span>
+                  <span className="font-mono text-slate-900 dark:text-slate-100">{connectorApi.getConnectorUrl()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Status:</span>
+                  <span className="text-slate-600 dark:text-slate-300">Status:</span>
                   <span className={`font-medium ${
                     connectorStatus === 'connected' ? 'text-emerald-600' :
                     connectorStatus === 'checking' ? 'text-blue-600' : 'text-red-600'
@@ -376,25 +376,25 @@ ${event.details ? `Details: ${event.details}` : ''}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Version:</span>
-                  <span className="text-slate-900">{connectorVersion || 'Unknown'}</span>
+                  <span className="text-slate-600 dark:text-slate-300">Version:</span>
+                  <span className="text-slate-900 dark:text-slate-100">{connectorVersion || 'Unknown'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Last Checked:</span>
-                  <span className="text-slate-900">{lastChecked}</span>
+                  <span className="text-slate-600 dark:text-slate-300">Last Checked:</span>
+                  <span className="text-slate-900 dark:text-slate-100">{lastChecked}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-5 h-5 text-slate-600" />
-                <h3 className="font-semibold text-slate-900">Last Routing Decision</h3>
+                <Zap className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100">Last Routing Decision</h3>
               </div>
               {lastRoutingMetadata ? (
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Routing Method:</span>
+                    <span className="text-slate-600 dark:text-slate-300">Routing Method:</span>
                     <span className={`font-medium px-2 py-0.5 rounded text-xs ${
                       lastRoutingMetadata.routing_decision === 'deterministic' ? 'bg-blue-100 text-blue-800' :
                       lastRoutingMetadata.routing_decision === 'ai_intent_extraction' ? 'bg-violet-100 text-violet-800' :
@@ -406,20 +406,20 @@ ${event.details ? `Details: ${event.details}` : ''}
                   </div>
                   {lastRoutingMetadata.deterministic_confidence !== null && (
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Confidence:</span>
-                      <span className="font-mono text-slate-900">
+                      <span className="text-slate-600 dark:text-slate-300">Confidence:</span>
+                      <span className="font-mono text-slate-900 dark:text-slate-100">
                         {(lastRoutingMetadata.deterministic_confidence * 100).toFixed(0)}%
                       </span>
                     </div>
                   )}
                   {lastRoutingMetadata.deterministic_match && (
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Match Type:</span>
-                      <span className="font-medium text-slate-900">{lastRoutingMetadata.deterministic_match}</span>
+                      <span className="text-slate-600 dark:text-slate-300">Match Type:</span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">{lastRoutingMetadata.deterministic_match}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-slate-600">OpenAI Invoked:</span>
+                    <span className="text-slate-600 dark:text-slate-300">OpenAI Invoked:</span>
                     <span className={`font-medium ${
                       lastRoutingMetadata.openai_invoked ? 'text-violet-600' : 'text-slate-600'
                     }`}>
@@ -427,15 +427,15 @@ ${event.details ? `Details: ${event.details}` : ''}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Safe Mode:</span>
+                    <span className="text-slate-600 dark:text-slate-300">Safe Mode:</span>
                     <span className={`font-medium ${
-                      lastRoutingMetadata.safe_mode ? 'text-blue-600' : 'text-slate-600'
+                      lastRoutingMetadata.safe_mode ? 'text-blue-600' : 'text-slate-600 dark:text-slate-300'
                     }`}>
                       {lastRoutingMetadata.safe_mode ? '✓ Active' : '✗ Inactive'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Privacy Mode:</span>
+                    <span className="text-slate-600 dark:text-slate-300">Privacy Mode:</span>
                     <span className={`font-medium ${
                       lastRoutingMetadata.privacy_mode ? 'text-emerald-600' : 'text-slate-600'
                     }`}>
@@ -444,17 +444,17 @@ ${event.details ? `Details: ${event.details}` : ''}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">No routing data available yet. Send a message to see routing information.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">No routing data available yet. Send a message to see routing information.</p>
               )}
             </div>
 
             <div>
-              <h3 className="font-semibold text-slate-900 mb-3">Quick Tests</h3>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-3">Quick Tests</h3>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={testHealthEndpoint}
                   disabled={runningTest !== null}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {runningTest === 'health' ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -466,7 +466,7 @@ ${event.details ? `Details: ${event.details}` : ''}
                 <button
                   onClick={testDatasetsEndpoint}
                   disabled={runningTest !== null}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {runningTest === 'datasets' ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -478,7 +478,7 @@ ${event.details ? `Details: ${event.details}` : ''}
                 <button
                   onClick={testRegisterEndpoint}
                   disabled={runningTest !== null}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {runningTest === 'register' ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -490,7 +490,7 @@ ${event.details ? `Details: ${event.details}` : ''}
                 <button
                   onClick={onRetryConnection}
                   disabled={runningTest !== null}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {runningTest !== null ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -516,11 +516,11 @@ ${event.details ? `Details: ${event.details}` : ''}
 
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900">Test Results</h3>
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100">Test Results</h3>
                 {testResults.length > 0 && (
                   <button
                     onClick={() => setTestResults([])}
-                    className="text-xs text-slate-600 hover:text-slate-900"
+                    className="text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
                   >
                     Clear results
                   </button>
@@ -528,9 +528,9 @@ ${event.details ? `Details: ${event.details}` : ''}
               </div>
               {testResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <PlayCircle className="w-12 h-12 text-slate-300 mb-3" />
-                  <p className="text-sm text-slate-600">No tests run yet</p>
-                  <p className="text-xs text-slate-500 mt-1">Run a test to see results here</p>
+                  <PlayCircle className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
+                  <p className="text-sm text-slate-600 dark:text-slate-300">No tests run yet</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Run a test to see results here</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -563,14 +563,14 @@ ${event.details ? `Details: ${event.details}` : ''}
                             {result.status || 'N/A'} {result.statusText}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-600 mb-2">
+                        <div className="text-xs text-slate-600 dark:text-slate-300 mb-2">
                           {new Date(result.timestamp).toLocaleString()}
                         </div>
                         <details className="text-xs">
-                          <summary className="cursor-pointer text-slate-700 hover:text-slate-900">
+                          <summary className="cursor-pointer text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-slate-100">
                             View response
                           </summary>
-                          <pre className="mt-2 p-2 bg-white rounded border border-slate-200 overflow-x-auto">
+                          <pre className="mt-2 p-2 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 overflow-x-auto">
                             {result.response}
                           </pre>
                         </details>
@@ -586,9 +586,9 @@ ${event.details ? `Details: ${event.details}` : ''}
 
       {activeTab === 'logs' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="p-6 border-b border-slate-200">
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 Last {events.length} events
                 {errorCount > 0 && <span className="text-red-600 ml-2">• {errorCount} errors</span>}
                 {warningCount > 0 && <span className="text-amber-600 ml-2">• {warningCount} warnings</span>}
@@ -599,7 +599,7 @@ ${event.details ? `Details: ${event.details}` : ''}
                     diagnostics.clearEvents();
                   }
                 }}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 Clear
@@ -614,7 +614,7 @@ ${event.details ? `Details: ${event.details}` : ''}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                     filter === filterType
                       ? 'bg-emerald-500 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
                   {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
@@ -631,8 +631,8 @@ ${event.details ? `Details: ${event.details}` : ''}
           <div className="p-6">
             {filteredEvents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <Info className="w-12 h-12 text-slate-300 mb-3" />
-                <p className="text-sm text-slate-600">No diagnostic events to show</p>
+                <Info className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">No diagnostic events to show</p>
               </div>
             ) : (
               <div className="space-y-2">
