@@ -221,7 +221,7 @@ class StorageManager:
         from app.config import config
 
         if not config.supabase:
-            logger.warning("Supabase not available, report not saved")
+            logger.debug("Supabase not available, report not saved")
             return {}
 
         try:
@@ -259,7 +259,7 @@ class StorageManager:
         from app.config import config
 
         if not config.supabase:
-            logger.warning("Supabase not available")
+            logger.debug("Supabase not available")
             return None
 
         try:
@@ -273,7 +273,7 @@ class StorageManager:
         from app.config import config
 
         if not config.supabase:
-            logger.warning("Supabase not available")
+            logger.debug("Supabase not available")
             return []
 
         try:

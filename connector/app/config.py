@@ -40,9 +40,9 @@ class Config:
                 self._supabase_client = create_client(supabase_url, supabase_key)
                 logger.info("Supabase client initialized successfully")
             except Exception as e:
-                logger.warning(f"Failed to initialize Supabase client: {e}")
+                logger.debug(f"Failed to initialize Supabase client: {e}")
         else:
-            logger.warning("Supabase credentials not found in environment")
+            logger.debug("Supabase credentials not found - using local-only mode")
 
     @property
     def supabase(self) -> Optional[Client]:
