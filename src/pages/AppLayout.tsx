@@ -402,22 +402,14 @@ export default function AppLayout() {
         setConnectorStatus('connected');
       } else {
         const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
-        diagnostics.error('Dataset Registration', `Failed to register dataset: ${data.name}`, errorDetails);
+        diagnostics.error('Dataset Upload/Register', `Failed to add dataset: ${data.name}`, errorDetails);
 
         displayError(result.error);
 
-        const newDataset: LocalDataset = {
-          id: Date.now().toString(),
-          name: data.name,
-          rows: Math.floor(Math.random() * 10000) + 1000,
-          lastUsed: 'Just now',
-        };
-        setDatasets([...datasets, newDataset]);
-        setActiveDataset(newDataset.id);
-        setDemoMode(true);
-        localStorage.setItem('demoMode', 'true');
-        window.dispatchEvent(new Event('demoModeChange'));
-        showToastMessage('⚠️ Using demo mode with mock data');
+        // Do NOT auto-enable demo mode or create a fake dataset.
+        // If user wants Demo Mode, they must turn it on explicitly in Settings.
+        showToastMessage('Failed to add dataset. Please check connector and try again.');
+        return;
       }
     } else if (type === 'cloud' && data.file) {
       const newDataset: LocalDataset = {
