@@ -87,6 +87,7 @@ export default function AppLayout() {
 
   const [lastRoutingMetadata, setLastRoutingMetadata] = useState<any>(null);
   const [showDatasetSummary, setShowDatasetSummary] = useState(false);
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const savedDemoMode = localStorage.getItem('demoMode');
@@ -224,6 +225,18 @@ export default function AppLayout() {
       loadReports();
     }
   }, [activeSection, connectorStatus]);
+
+  useEffect(() => {
+    const compute = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setThemeMode(isDark ? 'dark' : 'light');
+    };
+    compute();
+
+    const handler = () => compute();
+    window.addEventListener('themeChange', handler);
+    return () => window.removeEventListener('themeChange', handler);
+  }, []);
 
   const loadCatalog = async () => {
     if (!activeDataset) return;
@@ -1213,6 +1226,14 @@ export default function AppLayout() {
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   {privacySettings.allowSampleRows ? 'Samples Enabled' : 'Local-Only'}
+                </div>
+
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                  themeMode === 'dark'
+                    ? 'bg-slate-900 text-slate-100 border border-slate-700'
+                    : 'bg-white text-slate-700 border border-slate-200'
+                }`}>
+                  {themeMode === 'dark' ? 'Dark' : 'Light'}
                 </div>
               </div>
 

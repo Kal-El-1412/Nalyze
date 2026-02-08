@@ -38,6 +38,7 @@ export default function Settings() {
     success: boolean;
     message: string;
   } | null>(null);
+  const [themePreference, setThemePreference] = useState<'system' | 'light' | 'dark'>('system');
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem('apiKey');
@@ -79,6 +80,11 @@ export default function Settings() {
 
     const savedTelegram = loadTelegramSettings();
     setTelegram(savedTelegram);
+
+    const savedTheme = localStorage.getItem('themePreference') as any;
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+      setThemePreference(savedTheme);
+    }
   }, []);
 
   const handleSave = () => {
@@ -90,6 +96,7 @@ export default function Settings() {
     localStorage.setItem('privacyMode', privacyMode.toString());
     localStorage.setItem('safeMode', safeMode.toString());
     localStorage.setItem('demoMode', demoMode.toString());
+    localStorage.setItem('themePreference', themePreference);
     saveTelegramSettings(telegram);
     connectorApi.setBaseUrl(connectorUrl);
 
@@ -98,6 +105,7 @@ export default function Settings() {
     window.dispatchEvent(new Event('demoModeChange'));
     window.dispatchEvent(new Event('privacySettingsChange'));
     window.dispatchEvent(new Event('notificationsChange'));
+    window.dispatchEvent(new Event('themeChange'));
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -147,17 +155,17 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto px-6 py-8">
         <Link
           to="/app"
-          className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-8 transition-colors"
+          className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to App
         </Link>
 
-        <h1 className="text-3xl font-bold text-slate-900 mb-8">Settings</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-8">Settings</h1>
 
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
@@ -260,6 +268,31 @@ export default function Settings() {
                 className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
               />
             </label>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+                <PlayCircle className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Appearance</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Theme preference</p>
+              </div>
+            </div>
+
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+              Theme
+            </label>
+            <select
+              value={themePreference}
+              onChange={(e) => setThemePreference(e.target.value as any)}
+              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 p-6">
