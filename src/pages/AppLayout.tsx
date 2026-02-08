@@ -60,6 +60,7 @@ export default function AppLayout() {
   });
   const [privacyMode, setPrivacyMode] = useState(true);
   const [safeMode, setSafeMode] = useState(false);
+  const [aiAssist, setAiAssist] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [showDisconnectedBanner, setShowDisconnectedBanner] = useState(false);
@@ -96,6 +97,11 @@ export default function AppLayout() {
       setSafeMode(savedSafeMode === 'true');
     }
 
+    const savedAiAssist = localStorage.getItem('aiAssist');
+    if (savedAiAssist !== null) {
+      setAiAssist(savedAiAssist === 'true');
+    }
+
     const handleStorageChange = () => {
       const updatedPrivacyMode = localStorage.getItem('privacyMode');
       if (updatedPrivacyMode !== null) {
@@ -106,11 +112,17 @@ export default function AppLayout() {
       if (updatedSafeMode !== null) {
         setSafeMode(updatedSafeMode === 'true');
       }
+
+      const updatedAiAssist = localStorage.getItem('aiAssist');
+      if (updatedAiAssist !== null) {
+        setAiAssist(updatedAiAssist === 'true');
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('privacyModeChange', handleStorageChange);
     window.addEventListener('safeModeChange', handleStorageChange);
+    window.addEventListener('aiAssistChange', handleStorageChange);
 
     const unsubscribe = diagnostics.subscribe((events) => {
       const errors = events.filter(e => e.type === 'error').length;
@@ -129,6 +141,7 @@ export default function AppLayout() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('privacyModeChange', handleStorageChange);
       window.removeEventListener('safeModeChange', handleStorageChange);
+      window.removeEventListener('aiAssistChange', handleStorageChange);
     };
   }, []);
 
@@ -384,6 +397,7 @@ export default function AppLayout() {
           message: content,
           privacyMode,
           safeMode,
+          aiAssist,
           defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
         });
 
@@ -588,6 +602,7 @@ export default function AppLayout() {
             message: 'Here are the query results.',
             privacyMode,
             safeMode,
+            aiAssist,
             resultsContext: { results: queryResults.results },
             defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
           });
@@ -727,6 +742,7 @@ export default function AppLayout() {
             value: normalizedValue,
             privacyMode,
             safeMode,
+            aiAssist,
           });
 
           if (result.success) {
@@ -762,6 +778,7 @@ export default function AppLayout() {
                   message: 'continue',
                   privacyMode,
                   safeMode,
+                  aiAssist,
                 });
 
                 if (followUpResult.success) {
@@ -1036,6 +1053,13 @@ export default function AppLayout() {
                 catalog={catalog}
                 privacyMode={privacyMode}
                 safeMode={safeMode}
+                aiAssist={aiAssist}
+                onAiAssistChange={(value) => {
+                  setAiAssist(value);
+                  localStorage.setItem('aiAssist', String(value));
+                  window.dispatchEvent(new Event('aiAssistChange'));
+                  diagnostics.info('Settings', `AI Assist turned ${value ? 'ON' : 'OFF'}`);
+                }}
               />
             </div>
             <div className="w-full lg:w-[500px] max-h-[400px] lg:max-h-none">

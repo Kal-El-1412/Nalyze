@@ -8,7 +8,15 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# Load .env from connector directory (parent of app directory)
+connector_dir = Path(__file__).parent.parent
+env_path = connector_dir / ".env"
+load_dotenv(dotenv_path=env_path)
+logger.info(f"Loading environment from: {env_path}")
+if env_path.exists():
+    logger.info(f"✓ Found .env file at {env_path}")
+else:
+    logger.warning(f"✗ No .env file found at {env_path} - using system environment variables")
 
 
 class Config:
@@ -50,14 +58,28 @@ class Config:
 
     def _validate_ai_config(self):
         """Validate AI configuration and log status"""
+        ai_mode_env = os.getenv("AI_MODE", "off")
+        openai_key_env = os.getenv("OPENAI_API_KEY", "")
+
+        logger.info("=" * 60)
+        logger.info("AI Configuration Status:")
+        logger.info(f"  AI_MODE environment variable: {ai_mode_env}")
+        logger.info(f"  OPENAI_API_KEY present: {'Yes' if openai_key_env else 'No'}")
+        logger.info(f"  self.ai_mode (parsed): {self.ai_mode}")
+        logger.info(f"  self.openai_api_key length: {len(self.openai_api_key) if self.openai_api_key else 0}")
+
         if self.ai_mode:
             if self.openai_api_key:
-                logger.info("AI_MODE: ON (OpenAI API key configured)")
+                logger.info("✓ AI_MODE: ON (OpenAI API key configured)")
+                logger.info(f"  API Key starts with: {self.openai_api_key[:7]}...")
             else:
-                logger.warning("AI_MODE: ON but OPENAI_API_KEY not configured")
-                logger.warning("AI features will return errors until OPENAI_API_KEY is set")
+                logger.warning("✗ AI_MODE: ON but OPENAI_API_KEY not configured")
+                logger.warning("  AI features will return errors until OPENAI_API_KEY is set")
+                logger.warning("  Please set OPENAI_API_KEY in connector/.env file")
         else:
-            logger.info("AI_MODE: OFF")
+            logger.info("○ AI_MODE: OFF")
+            logger.info("  To enable AI features, set AI_MODE=on in connector/.env")
+        logger.info("=" * 60)
 
     def validate_ai_mode_for_request(self) -> Tuple[bool, Optional[str]]:
         """

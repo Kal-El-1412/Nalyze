@@ -31,6 +31,8 @@ interface ChatPanelProps {
   catalog?: DatasetCatalog | null;
   privacyMode?: boolean;
   safeMode?: boolean;
+  aiAssist?: boolean;
+  onAiAssistChange?: (value: boolean) => void;
 }
 
 interface AnalysisTemplate {
@@ -164,15 +166,11 @@ const suggestions = [
   { icon: BarChart3, text: 'Top categories', color: 'text-emerald-600 bg-emerald-50' },
 ];
 
-export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog, privacyMode = true, safeMode = false }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSendMessage, onClarificationResponse, onTogglePin, onShowDatasetSummary, activeDataset, datasetName, catalog, privacyMode = true, safeMode = false, aiAssist = false, onAiAssistChange }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [saveAsDefaultMap, setSaveAsDefaultMap] = useState<Record<string, boolean>>({});
-  const [aiAssist, setAiAssist] = useState(() => {
-    const saved = localStorage.getItem('aiAssist');
-    return saved === 'true';
-  });
   const templatesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -192,9 +190,9 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
   }, []);
 
   const toggleAiAssist = () => {
-    const newValue = !aiAssist;
-    setAiAssist(newValue);
-    localStorage.setItem('aiAssist', String(newValue));
+    if (onAiAssistChange) {
+      onAiAssistChange(!aiAssist);
+    }
   };
 
   const handleSend = () => {
