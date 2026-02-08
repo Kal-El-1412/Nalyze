@@ -32,7 +32,7 @@ export default function DatasetsPanel({
 }: DatasetsPanelProps) {
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-slate-200 space-y-3">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
         <button
           onClick={onAddDataset}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium shadow-sm"
@@ -41,9 +41,9 @@ export default function DatasetsPanel({
           Add Dataset
         </button>
         {isConnected && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-lg">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-xs font-medium text-emerald-700">Local-only privacy</span>
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Local-only privacy</span>
           </div>
         )}
       </div>
@@ -56,14 +56,14 @@ export default function DatasetsPanel({
         )}
         {datasets.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
-              <Database className="w-8 h-8 text-slate-400" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
+              <Database className="w-8 h-8 text-slate-400 dark:text-slate-500" />
             </div>
-            <h3 className="text-base font-semibold text-slate-900 mb-1">No datasets yet</h3>
-            <p className="text-sm text-slate-500 mb-6">Connect a data source to start analyzing</p>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">No datasets yet</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Connect a data source to start analyzing</p>
             <button
               onClick={onAddDataset}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add Your First Dataset
@@ -75,8 +75,8 @@ export default function DatasetsPanel({
               key={dataset.id}
               className={`p-4 rounded-xl border-2 transition-all cursor-pointer group ${
                 activeDataset === dataset.id
-                  ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                  : 'border-slate-200 hover:border-slate-300 bg-white hover:shadow-sm'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950 shadow-sm'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:shadow-sm'
               }`}
               onClick={() => onSelectDataset(dataset.id)}
             >
@@ -84,15 +84,15 @@ export default function DatasetsPanel({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      activeDataset === dataset.id ? 'bg-emerald-100' : 'bg-slate-100'
+                      activeDataset === dataset.id ? 'bg-emerald-100 dark:bg-emerald-900' : 'bg-slate-100 dark:bg-slate-800'
                     }`}>
                       <Database className={`w-4 h-4 ${
-                        activeDataset === dataset.id ? 'text-emerald-600' : 'text-slate-600'
+                        activeDataset === dataset.id ? 'text-emerald-600' : 'text-slate-600 dark:text-slate-300'
                       }`} />
                     </div>
-                    <h3 className="font-semibold text-slate-900 truncate">{dataset.name}</h3>
+                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate">{dataset.name}</h3>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-600 ml-10">
+                  <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300 ml-10">
                     <span className="font-medium">{dataset.rows.toLocaleString()} rows</span>
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -105,7 +105,7 @@ export default function DatasetsPanel({
                     e.stopPropagation();
                     onDeleteDataset(dataset.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
