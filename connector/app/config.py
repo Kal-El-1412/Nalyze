@@ -3,7 +3,6 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
-from supabase import create_client, Client
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -29,32 +28,17 @@ class Config:
         self.xlsx_max_size_mb = 200
         self.rate_limit_requests_per_minute = 60
 
-        self._supabase_client: Optional[Client] = None
-
         # AI Configuration
         self.ai_mode = os.getenv("AI_MODE", "off").lower() in ["on", "true", "1", "yes"]
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
 
-        self._init_supabase()
         self._load_config()
         self._validate_ai_config()
 
-    def _init_supabase(self):
-        supabase_url = os.getenv("VITE_SUPABASE_URL")
-        supabase_key = os.getenv("VITE_SUPABASE_ANON_KEY")
-
-        if supabase_url and supabase_key:
-            try:
-                self._supabase_client = create_client(supabase_url, supabase_key)
-                logger.info("Supabase client initialized successfully")
-            except Exception as e:
-                logger.debug(f"Failed to initialize Supabase client: {e}")
-        else:
-            logger.debug("Supabase credentials not found - using local-only mode")
-
     @property
-    def supabase(self) -> Optional[Client]:
-        return self._supabase_client
+    def supabase(self):
+        """Returns None - Supabase dependency removed for local-only mode"""
+        return None
 
     def _validate_ai_config(self):
         """Validate AI configuration and log status"""
