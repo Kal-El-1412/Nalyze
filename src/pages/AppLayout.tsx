@@ -117,12 +117,28 @@ export default function AppLayout() {
       if (updatedAiAssist !== null) {
         setAiAssist(updatedAiAssist === 'true');
       }
+
+      const updatedDemoMode = localStorage.getItem('demoMode');
+      if (updatedDemoMode !== null) {
+        const newDemoMode = updatedDemoMode === 'true';
+        setDemoMode(newDemoMode);
+
+        if (newDemoMode) {
+          setConnectorStatus('disconnected');
+          setConnectorVersion('');
+          setShowDisconnectedBanner(false);
+          diagnostics.info('Connector', 'Demo Mode enabled - using mock data');
+        } else {
+          checkConnectorHealth();
+        }
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('privacyModeChange', handleStorageChange);
     window.addEventListener('safeModeChange', handleStorageChange);
     window.addEventListener('aiAssistChange', handleStorageChange);
+    window.addEventListener('demoModeChange', handleStorageChange);
 
     const unsubscribe = diagnostics.subscribe((events) => {
       const errors = events.filter(e => e.type === 'error').length;
@@ -142,6 +158,7 @@ export default function AppLayout() {
       window.removeEventListener('privacyModeChange', handleStorageChange);
       window.removeEventListener('safeModeChange', handleStorageChange);
       window.removeEventListener('aiAssistChange', handleStorageChange);
+      window.removeEventListener('demoModeChange', handleStorageChange);
     };
   }, []);
 
