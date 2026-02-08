@@ -162,6 +162,13 @@ export default function AppLayout() {
   const loadCatalog = async () => {
     if (!activeDataset) return;
 
+    // Skip backend call in Demo Mode
+    if (demoMode) {
+      const mockCatalog = connectorApi.getMockCatalog();
+      setCatalog(mockCatalog);
+      return;
+    }
+
     try {
       const catalogData = await connectorApi.getDatasetCatalog(activeDataset);
       setCatalog(catalogData);
@@ -172,6 +179,12 @@ export default function AppLayout() {
   };
 
   const loadReports = async () => {
+    // Skip backend call in Demo Mode
+    if (demoMode) {
+      setReports([]);
+      return;
+    }
+
     try {
       const apiReports = await connectorApi.getReports();
       console.log('Loaded reports from API:', apiReports);
@@ -1060,7 +1073,8 @@ export default function AppLayout() {
                   window.dispatchEvent(new Event('aiAssistChange'));
                   diagnostics.info('Settings', `AI Assist turned ${value ? 'ON' : 'OFF'}`);
 
-                  if (value) {
+                  // Skip connection test in Demo Mode
+                  if (value && !demoMode) {
                     diagnostics.info('AI Connection', 'Testing OpenAI API connection...');
                     const testResult = await connectorApi.testAiConnection();
 
