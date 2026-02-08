@@ -159,29 +159,29 @@ export default function Settings() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <Link
           to="/app"
-          className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 mb-8 transition-colors"
+          className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300 dark:text-slate-300 hover:text-slate-900 dark:text-slate-100 dark:hover:text-slate-100 mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to App
         </Link>
 
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-8">Settings</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 dark:text-slate-100 mb-8">Settings</h1>
 
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
                 <Key className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">API Configuration</h2>
-                <p className="text-sm text-slate-600">Configure your AI provider API key</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">API Configuration</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Configure your AI provider API key</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   OpenAI API Key
                 </label>
                 <div className="relative">
@@ -190,36 +190,36 @@ export default function Settings() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-..."
-                    className="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                   />
                   <button
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-300"
                   >
                     {showApiKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-2">
                   Your API key is stored locally and never sent to our servers
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
                 <Wifi className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Local Connector</h2>
-                <p className="text-sm text-slate-600">Configure your local connector endpoint</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Local Connector</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Configure your local connector endpoint</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Connector Base URL
                 </label>
                 <input
@@ -227,23 +227,23 @@ export default function Settings() {
                   value={connectorUrl}
                   onChange={(e) => setConnectorUrl(e.target.value)}
                   placeholder="http://localhost:7337"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                 />
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-2">
                   The URL where your local connector is running (default: http://localhost:7337)
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
                 <PlayCircle className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Demo Mode</h2>
-                <p className="text-sm text-slate-600">Run the app with mock data for demonstrations</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Demo Mode</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Run the app with mock data for demonstrations</p>
               </div>
             </div>
 
@@ -256,8 +256,8 @@ export default function Settings() {
 
             <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
               <div>
-                <div className="font-medium text-slate-900">Enable Demo Mode</div>
-                <div className="text-sm text-slate-600">
+                <div className="font-medium text-slate-900 dark:text-slate-100">Enable Demo Mode</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">
                   Use mock data responses regardless of connector status
                 </div>
               </div>
@@ -273,15 +273,15 @@ export default function Settings() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-                <PlayCircle className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+                <PlayCircle className="w-5 h-5 text-slate-700 dark:text-slate-200 dark:text-slate-200" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Appearance</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-300">Theme preference</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 dark:text-slate-100">Appearance</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300 dark:text-slate-300">Theme preference</p>
               </div>
             </div>
 
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 dark:text-slate-200 mb-2">
               Theme
             </label>
             <select
@@ -292,7 +292,7 @@ export default function Settings() {
                 localStorage.setItem('themePreference', next);
                 window.dispatchEvent(new Event('themeChange'));
               }}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 dark:text-slate-100"
             >
               <option value="system">System</option>
               <option value="light">Light</option>
@@ -300,14 +300,14 @@ export default function Settings() {
             </select>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Privacy & Data Sharing</h2>
-                <p className="text-sm text-slate-600">Control what data is shared with AI</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Privacy & Data Sharing</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Control what data is shared with AI</p>
               </div>
             </div>
 
@@ -322,16 +322,16 @@ export default function Settings() {
               <label className="flex items-center justify-between p-4 border-2 border-emerald-200 rounded-lg hover:bg-emerald-50 cursor-pointer transition-colors bg-emerald-50/50">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <div className="font-semibold text-slate-900">Privacy Mode (mask personal data)</div>
+                    <div className="font-semibold text-slate-900 dark:text-slate-100">Privacy Mode (mask personal data)</div>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                       privacyMode
                         ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                        : 'bg-slate-100 text-slate-600 border border-slate-300'
+                        : 'bg-slate-100 text-slate-600 dark:text-slate-300 border border-slate-300'
                     }`}>
                       {privacyMode ? 'ON' : 'OFF'}
                     </span>
                   </div>
-                  <div className="text-sm text-slate-600">
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
                     When enabled, detected PII columns are masked in results and excluded from AI prompts.
                   </div>
                 </div>
@@ -346,16 +346,16 @@ export default function Settings() {
               <label className="flex items-center justify-between p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors bg-blue-50/50">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <div className="font-semibold text-slate-900">Safe Mode (Aggregates only)</div>
+                    <div className="font-semibold text-slate-900 dark:text-slate-100">Safe Mode (Aggregates only)</div>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                       safeMode
                         ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                        : 'bg-slate-100 text-slate-600 border border-slate-300'
+                        : 'bg-slate-100 text-slate-600 dark:text-slate-300 border border-slate-300'
                     }`}>
                       {safeMode ? 'ON' : 'OFF'}
                     </span>
                   </div>
-                  <div className="text-sm text-slate-600">
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
                     When enabled, AI only uses schema + aggregated statistics. No raw rows are sent to AI.
                   </div>
                 </div>
@@ -369,12 +369,12 @@ export default function Settings() {
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Advanced Privacy Settings</h3>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Advanced Privacy Settings</h3>
               <div className="space-y-4">
               <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                 <div>
-                  <div className="font-medium text-slate-900">Allow sample rows to be sent to AI</div>
-                  <div className="text-sm text-slate-600">
+                  <div className="font-medium text-slate-900 dark:text-slate-100">Allow sample rows to be sent to AI</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
                     When enabled, small samples of actual data may be included in AI requests
                   </div>
                 </div>
@@ -396,8 +396,8 @@ export default function Settings() {
                 }`}
               >
                 <div>
-                  <div className="font-medium text-slate-900">Mask emails and phone numbers</div>
-                  <div className="text-sm text-slate-600">
+                  <div className="font-medium text-slate-900 dark:text-slate-100">Mask emails and phone numbers</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
                     Automatically redact PII like emails and phone numbers from samples
                   </div>
                 </div>
@@ -415,22 +415,22 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
                 <Bell className="w-5 h-5 text-teal-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
-                <p className="text-sm text-slate-600">Manage your notification preferences</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Notifications</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Manage your notification preferences</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                 <div>
-                  <div className="font-medium text-slate-900">Job Complete</div>
-                  <div className="text-sm text-slate-600">Get notified when analysis jobs finish</div>
+                  <div className="font-medium text-slate-900 dark:text-slate-100">Job Complete</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">Get notified when analysis jobs finish</div>
                 </div>
                 <input
                   type="checkbox"
@@ -444,8 +444,8 @@ export default function Settings() {
 
               <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                 <div>
-                  <div className="font-medium text-slate-900">Error Alerts</div>
-                  <div className="text-sm text-slate-600">Get notified when errors occur</div>
+                  <div className="font-medium text-slate-900 dark:text-slate-100">Error Alerts</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">Get notified when errors occur</div>
                 </div>
                 <input
                   type="checkbox"
@@ -459,8 +459,8 @@ export default function Settings() {
 
               <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                 <div>
-                  <div className="font-medium text-slate-900">New Insights</div>
-                  <div className="text-sm text-slate-600">Get notified about discovered insights</div>
+                  <div className="font-medium text-slate-900 dark:text-slate-100">New Insights</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">Get notified about discovered insights</div>
                 </div>
                 <input
                   type="checkbox"
@@ -474,14 +474,14 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Telegram Notifications</h2>
-                <p className="text-sm text-slate-600">Get notified on Telegram when jobs complete</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Telegram Notifications</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Get notified on Telegram when jobs complete</p>
               </div>
             </div>
 
@@ -500,7 +500,7 @@ export default function Settings() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Telegram Bot Token
                 </label>
                 <div className="relative">
@@ -509,11 +509,11 @@ export default function Settings() {
                     value={telegram.botToken}
                     onChange={(e) => setTelegram({ ...telegram, botToken: e.target.value })}
                     placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                    className="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                   />
                   <button
                     onClick={() => setShowBotToken(!showBotToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-300"
                   >
                     {showBotToken ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -521,7 +521,7 @@ export default function Settings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Telegram Chat ID
                 </label>
                 <input
@@ -529,7 +529,7 @@ export default function Settings() {
                   value={telegram.chatId}
                   onChange={(e) => setTelegram({ ...telegram, chatId: e.target.value })}
                   placeholder="123456789"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                 />
               </div>
 
@@ -556,8 +556,8 @@ export default function Settings() {
 
               <label className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                 <div>
-                  <div className="font-medium text-slate-900">Notify on job completion</div>
-                  <div className="text-sm text-slate-600">
+                  <div className="font-medium text-slate-900 dark:text-slate-100">Notify on job completion</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
                     Send Telegram message when analysis jobs finish
                   </div>
                 </div>

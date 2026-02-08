@@ -1192,13 +1192,13 @@ export default function AppLayout() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-                    <span className="text-sm font-medium text-slate-700">
+                  <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-slate-900 transition-colors">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                       {activeDataset
                         ? datasets.find(d => d.id === activeDataset)?.name
                         : 'No dataset selected'}
                     </span>
-                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                    <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
 

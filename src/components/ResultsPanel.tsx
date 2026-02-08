@@ -47,25 +47,25 @@ function renderMarkdown(markdown: string) {
 
     if (line.startsWith('## ')) {
       elements.push(
-        <h2 key={i} className="text-xl font-bold text-slate-900 mt-6 mb-3 first:mt-0">
+        <h2 key={i} className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-6 mb-3 first:mt-0">
           {line.replace('## ', '')}
         </h2>
       );
     } else if (line.startsWith('# ')) {
       elements.push(
-        <h1 key={i} className="text-2xl font-bold text-slate-900 mt-6 mb-4 first:mt-0">
+        <h1 key={i} className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-6 mb-4 first:mt-0">
           {line.replace('# ', '')}
         </h1>
       );
     } else if (line.startsWith('- ')) {
       elements.push(
-        <li key={i} className="ml-4 text-slate-700 leading-relaxed">
+        <li key={i} className="ml-4 text-slate-700 dark:text-slate-300 leading-relaxed">
           {renderInlineMarkdown(line.replace('- ', ''))}
         </li>
       );
     } else if (line.trim()) {
       elements.push(
-        <p key={i} className="text-slate-700 leading-relaxed mb-3">
+        <p key={i} className="text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
           {renderInlineMarkdown(line)}
         </p>
       );
@@ -79,7 +79,7 @@ function renderInlineMarkdown(text: string) {
   const parts = text.split(/(\*\*.*?\*\*)/g);
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
+      return <strong key={idx} className="font-semibold text-slate-900 dark:text-slate-100">{part.slice(2, -2)}</strong>;
     }
     return part;
   });
@@ -151,34 +151,34 @@ export default function ResultsPanel({
     return (
       <div className="space-y-6">
         <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">Analysis Overview</h3>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-4">Analysis Overview</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs font-medium text-slate-500 uppercase mb-1">Dataset</div>
-              <div className="text-sm text-slate-900 font-medium">{auditMetadata.datasetName}</div>
+              <div className="text-sm text-slate-900 dark:text-slate-100 font-medium">{auditMetadata.datasetName}</div>
               <div className="text-xs text-slate-500 font-mono mt-0.5">{auditMetadata.datasetId}</div>
             </div>
             <div>
               <div className="text-xs font-medium text-slate-500 uppercase mb-1">Analysis Type</div>
-              <div className="text-sm text-slate-900">{auditMetadata.analysisType}</div>
+              <div className="text-sm text-slate-900 dark:text-slate-100">{auditMetadata.analysisType}</div>
             </div>
             <div>
               <div className="text-xs font-medium text-slate-500 uppercase mb-1">Time Period</div>
-              <div className="text-sm text-slate-900">{auditMetadata.timePeriod}</div>
+              <div className="text-sm text-slate-900 dark:text-slate-100">{auditMetadata.timePeriod}</div>
             </div>
             <div>
               <div className="text-xs font-medium text-slate-500 uppercase mb-1">Generated</div>
-              <div className="text-sm text-slate-900">{formatDateTime(auditMetadata.generatedAt)}</div>
+              <div className="text-sm text-slate-900 dark:text-slate-100">{formatDateTime(auditMetadata.generatedAt)}</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">Security & Privacy Settings</h3>
+        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 dark:text-slate-100 mb-4">Security & Privacy Settings</h3>
           <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+            <div className="flex items-center justify-between py-2 px-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <div className="text-sm font-medium text-slate-700">AI Assist</div>
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-200">AI Assist</div>
               </div>
               <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                 auditMetadata.aiAssist
@@ -188,9 +188,9 @@ export default function ResultsPanel({
                 {auditMetadata.aiAssist ? 'ON' : 'OFF'}
               </div>
             </div>
-            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+            <div className="flex items-center justify-between py-2 px-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <div className="text-sm font-medium text-slate-700">Safe Mode</div>
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-200">Safe Mode</div>
               </div>
               <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                 auditMetadata.safeMode
@@ -200,9 +200,9 @@ export default function ResultsPanel({
                 {auditMetadata.safeMode ? 'ON' : 'OFF'}
               </div>
             </div>
-            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+            <div className="flex items-center justify-between py-2 px-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <div className="text-sm font-medium text-slate-700">Privacy Mode</div>
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-200">Privacy Mode</div>
               </div>
               <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                 auditMetadata.privacyMode
@@ -215,8 +215,8 @@ export default function ResultsPanel({
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">
+        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 dark:text-slate-100 mb-4">
             Executed Queries ({auditMetadata.executedQueries.length})
           </h3>
           {auditMetadata.privacyMode && (
@@ -228,10 +228,10 @@ export default function ResultsPanel({
             {auditMetadata.executedQueries.map((query, idx) => {
               const isExpanded = expandedQueries.has(idx);
               return (
-                <div key={idx} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div key={idx} className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                   <button
                     onClick={() => toggleQueryExpansion(idx)}
-                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0">
@@ -242,17 +242,17 @@ export default function ResultsPanel({
                         )}
                       </div>
                       <div className="text-left">
-                        <div className="text-sm font-medium text-slate-900">{query.name}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100 dark:text-slate-100">{query.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           {query.rowCount.toLocaleString()} row{query.rowCount !== 1 ? 's' : ''} returned
                         </div>
                       </div>
                     </div>
                   </button>
                   {isExpanded && (
-                    <div className="px-4 pb-4 pt-2 border-t border-slate-200 bg-slate-50">
-                      <div className="text-xs font-medium text-slate-500 uppercase mb-2">SQL Query</div>
-                      <pre className="text-xs font-mono text-slate-800 bg-white p-3 rounded border border-slate-200 overflow-x-auto">
+                    <div className="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">SQL Query</div>
+                      <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-950 p-3 rounded border border-slate-200 dark:border-slate-800 overflow-x-auto">
                         {query.sql}
                       </pre>
                     </div>
@@ -280,7 +280,7 @@ export default function ResultsPanel({
     return (
       <div key={index} className="mb-6 last:mb-0">
         {tableTitle && (
-          <h3 className="text-lg font-semibold text-slate-900 mb-3 px-1">{tableTitle}</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 px-1">{tableTitle}</h3>
         )}
         <div className="overflow-auto rounded-lg border border-slate-200 max-h-[500px]">
           <table className="w-full border-collapse">
@@ -289,7 +289,7 @@ export default function ResultsPanel({
                 {table.columns.map((col, idx) => (
                   <th
                     key={idx}
-                    className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200 whitespace-nowrap"
+                    className="px-4 py-3 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 whitespace-nowrap"
                   >
                     {col}
                   </th>
@@ -310,7 +310,7 @@ export default function ResultsPanel({
                     return (
                       <td
                         key={cellIdx}
-                        className="px-4 py-3 text-sm text-slate-700 max-w-xs"
+                        className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 max-w-xs"
                         title={isTruncated ? String(cellValue) : undefined}
                       >
                         {displayValue}
@@ -343,7 +343,7 @@ export default function ResultsPanel({
               {Object.keys(data[0]).map((key) => (
                 <th
                   key={key}
-                  className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200 whitespace-nowrap"
+                  className="px-4 py-3 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 whitespace-nowrap"
                 >
                   {key}
                 </th>
@@ -364,7 +364,7 @@ export default function ResultsPanel({
                   return (
                     <td
                       key={cellIdx}
-                      className="px-4 py-3 text-sm text-slate-700 max-w-xs"
+                      className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 max-w-xs"
                       title={isTruncated ? String(cellValue) : undefined}
                     >
                       {displayValue}
@@ -380,8 +380,8 @@ export default function ResultsPanel({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-slate-200">
-      <div className="flex items-center justify-between border-b border-slate-200">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
         <div className="flex">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -392,7 +392,7 @@ export default function ResultsPanel({
                 className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors relative ${
                   activeTab === tab.id
                     ? 'text-emerald-600'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-100'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -409,7 +409,7 @@ export default function ResultsPanel({
           <div className="flex items-center gap-2 px-4">
             <button
               onClick={handleCopySummary}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-100 rounded-lg transition-colors"
             >
               {copied ? (
                 <>
@@ -457,7 +457,7 @@ export default function ResultsPanel({
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
                   <FileText className="w-8 h-8 text-slate-400" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">No summary yet</h3>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">No summary yet</h3>
                 <p className="text-sm text-slate-500">Ask a question to see analysis results here</p>
               </div>
             )}
@@ -479,7 +479,7 @@ export default function ResultsPanel({
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
                   <Table className="w-8 h-8 text-slate-400" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">No tables returned for this analysis</h3>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">No tables returned for this analysis</h3>
                 <p className="text-sm text-slate-500">Ask a different question to see tabular results</p>
               </div>
             )}
@@ -510,8 +510,8 @@ export default function ResultsPanel({
                           : isPlanning
                           ? 'px-4 py-3 bg-amber-50 border border-amber-200 text-amber-900'
                           : isSubItem
-                          ? 'px-4 py-2 ml-4 bg-slate-50 border border-slate-200 text-slate-700 font-mono'
-                          : 'px-4 py-3 bg-slate-50 border border-slate-200 text-slate-700'
+                          ? 'px-4 py-2 ml-4 bg-slate-50 border border-slate-200 text-slate-700 dark:text-slate-300 font-mono'
+                          : 'px-4 py-3 bg-slate-50 border border-slate-200 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       {entry}
@@ -524,7 +524,7 @@ export default function ResultsPanel({
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
                   <Shield className="w-8 h-8 text-slate-400" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">No audit logs yet</h3>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">No audit logs yet</h3>
                 <p className="text-sm text-slate-500">Data operations will be logged here</p>
               </div>
             )}

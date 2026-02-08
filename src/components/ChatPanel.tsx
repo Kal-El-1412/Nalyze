@@ -280,8 +280,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
           </div>
           <div className={`max-w-2xl rounded-2xl px-4 py-3 ${
             isAnswered
-              ? 'bg-slate-50 text-slate-600'
-              : 'bg-slate-100 text-slate-900'
+              ? 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
           }`}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm leading-relaxed flex-1">{message.content}</p>
@@ -356,8 +356,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                   <span className="font-medium">Queries to execute:</span>
                 </div>
                 {message.queriesData.map((query, idx) => (
-                  <div key={idx} className="bg-white/50 rounded px-3 py-2 border border-amber-200">
-                    <p className="text-xs font-medium text-amber-900">{query.name}</p>
+                  <div key={idx} className="bg-white/50 dark:bg-slate-900/50 rounded px-3 py-2 border border-amber-200 dark:border-amber-700">
+                    <p className="text-xs font-medium text-amber-900 dark:text-amber-200">{query.name}</p>
                     <p className="text-xs text-amber-700 font-mono mt-1">{query.sql}</p>
                   </div>
                 ))}
@@ -439,8 +439,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
           </div>
         </div>
         {message.type === 'user' && (
-          <div className="w-7 h-7 bg-slate-200 rounded-lg flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 text-slate-600" />
+          <div className="w-7 h-7 bg-slate-200 dark:bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0">
+            <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           </div>
         )}
       </div>
@@ -448,17 +448,17 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950">
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mb-4">
               <Bot className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
               Start analyzing your data
             </h3>
-            <p className="text-slate-600 mb-6 max-w-md">
+            <p className="text-slate-600 dark:text-slate-300 mb-6 max-w-md">
               Ask questions about your spreadsheet in natural language. Try one of the suggestions below.
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
@@ -466,7 +466,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                 <button
                   key={idx}
                   onClick={() => setInput(suggestion.text)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-all ${suggestion.color}`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all ${suggestion.color}`}
                 >
                   <suggestion.icon className="w-4 h-4" />
                   <span className="text-sm font-medium">{suggestion.text}</span>
@@ -560,23 +560,23 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
           <div className="relative" ref={templatesRef}>
             <button
               onClick={() => setShowTemplates(!showTemplates)}
-              className="px-3 py-3 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              className="px-3 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               title="Analysis Templates - Context-aware prompts for your data"
             >
-              <ChevronDown className={`w-5 h-5 text-slate-600 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-5 h-5 text-slate-600 dark:text-slate-300 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
             </button>
             {showTemplates && (
-              <div className="absolute bottom-full left-0 mb-2 w-80 bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden z-10">
-                <div className="p-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-                  <p className="text-sm font-semibold text-slate-900">Analysis Templates</p>
-                  <p className="text-xs text-slate-600 mt-0.5">Click to fill prompt with context</p>
+              <div className="absolute bottom-full left-0 mb-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-2xl overflow-hidden z-10">
+                <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-850">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Analysis Templates</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">Click to fill prompt with context</p>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {analysisTemplates.map((template) => (
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template)}
-                      className="group w-full text-left px-3 py-3 hover:bg-slate-50 transition-all border-b border-slate-100 last:border-b-0"
+                      className="group w-full text-left px-3 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-b border-slate-100 dark:border-slate-800 last:border-b-0"
                       title={template.description}
                     >
                       <div className="flex items-start gap-2.5">
@@ -585,11 +585,11 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                               {template.label}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-600 leading-relaxed">
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                             {template.description}
                           </p>
                         </div>
@@ -611,7 +611,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask a question about your data..."
-            className="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+            className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
           />
           <button
             onClick={toggleAiAssist}
