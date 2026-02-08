@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Literal, Union
 from pydantic import BaseModel, Field
+import uuid
 
 
 class HealthResponse(BaseModel):
@@ -68,24 +69,36 @@ class ResultsContext(BaseModel):
 
 class ChatOrchestratorRequest(BaseModel):
     datasetId: str
-    conversationId: str
+    conversationId: Optional[str] = None
+
     message: Optional[str] = None
     intent: Optional[str] = None
     value: Optional[Any] = None
+
     privacyMode: Optional[bool] = True
     safeMode: Optional[bool] = False
     aiAssist: Optional[bool] = False
+
     resultsContext: Optional[ResultsContext] = None
     defaultsContext: Optional[Dict[str, Any]] = None
 
     def __init__(self, **data):
         super().__init__(**data)
-        if not self.message and not self.intent:
+
+        msg = (self.message or "").strip()
+        intent = (self.intent or "").strip()
+
+        # must be either message OR (intent+value)
+        if not msg and not intent:
             raise ValueError("Either 'message' or 'intent' must be provided")
-        if self.message and self.intent:
+        if msg and intent:
             raise ValueError("Cannot provide both 'message' and 'intent'")
-        if self.intent and self.value is None:
+        if intent and self.value is None:
             raise ValueError("'value' is required when 'intent' is provided")
+
+        # generate a conversation id if missing
+        if not self.conversationId:
+            self.conversationId = f"conv-{uuid.uuid4()}"
 
 
 class AuditInfo(BaseModel):
