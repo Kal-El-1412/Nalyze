@@ -215,9 +215,8 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
   const handleTemplateSelect = (template: AnalysisTemplate) => {
     setShowTemplates(false);
 
-    // Send structured intent with analysis_type as the value
-    // The choice parameter will be used as the display text in the user message
-    onClarificationResponse(template.analysisType, 'set_analysis_type');
+    // Send the template's generated prompt as a normal chat message
+    onSendMessage(template.getPrompt(catalog));
   };
 
   const analysisTemplates = getAnalysisTemplates();
