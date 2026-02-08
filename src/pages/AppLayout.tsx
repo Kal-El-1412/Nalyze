@@ -92,9 +92,7 @@ export default function AppLayout() {
     (localStorage.getItem('themePreference') as any) || 'system'
   );
 
-  const cycleThemePreference = () => {
-    const current = (localStorage.getItem('themePreference') as any) || 'system';
-    const next = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system';
+  const setTheme = (next: 'system' | 'light' | 'dark') => {
     localStorage.setItem('themePreference', next);
     setThemePreference(next);
     window.dispatchEvent(new Event('themeChange'));
@@ -1243,16 +1241,43 @@ export default function AppLayout() {
                   {privacySettings.allowSampleRows ? 'Samples Enabled' : 'Local-Only'}
                 </div>
 
-                <button
-                  onClick={cycleThemePreference}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  title="Cycle theme: System → Light → Dark"
-                >
-                  {themePreference === 'system' ? <Monitor className="w-3.5 h-3.5" /> : themePreference === 'light' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">
-                    {themePreference.charAt(0).toUpperCase() + themePreference.slice(1)}
-                  </span>
-                </button>
+                <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
+                  <button
+                    onClick={() => setTheme('system')}
+                    className={`px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors
+                      ${themePreference === 'system'
+                        ? 'bg-slate-900 text-white dark:bg-slate-700'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    title="Follow system appearance"
+                  >
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">System</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors
+                      ${themePreference === 'light'
+                        ? 'bg-slate-900 text-white dark:bg-slate-700'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    title="Light mode"
+                  >
+                    <Sun className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Light</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors
+                      ${themePreference === 'dark'
+                        ? 'bg-slate-900 text-white dark:bg-slate-700'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    title="Dark mode"
+                  >
+                    <Moon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Dark</span>
+                  </button>
+                </div>
 
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
                   themeMode === 'dark'
