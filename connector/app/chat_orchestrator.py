@@ -299,6 +299,66 @@ class ChatOrchestrator:
         state = state_manager.get_state(request.conversationId)
         context = state.get("context", {})
 
+        # --- Handle structured intent/value requests (clarification responses) ---
+        if request.intent:
+            logger.info(f"Processing intent response: intent={request.intent}, value={request.value}")
+
+            # Normalize value to string
+            raw_value = str(request.value).strip() if request.value is not None else ""
+
+            if request.intent == "set_analysis_type":
+                v = raw_value.lower()
+
+                # Map common UI labels to analysis types
+                if "row" in v and "count" in v:
+                    analysis_type = "row_count"
+                elif "trend" in v or "over time" in v or "monthly" in v or "weekly" in v:
+                    analysis_type = "trend"
+                elif "categor" in v or "breakdown" in v or "top" in v:
+                    analysis_type = "top_categories"
+                elif "outlier" in v or "anomal" in v or "unusual" in v:
+                    analysis_type = "outliers"
+                elif "quality" in v or "missing" in v or "duplicate" in v:
+                    analysis_type = "data_quality"
+                else:
+                    # Fallback: let deterministic router try this value as a message
+                    routing = deterministic_router.route_intent(raw_value)
+                    analysis_type = routing.get("analysis_type")
+
+                if not analysis_type:
+                    return NeedsClarificationResponse(
+                        question="I couldn't determine the analysis type from that choice. Please pick one:",
+                        choices=["Trends over time", "Top categories", "Find outliers", "Count rows", "Check data quality"],
+                        intent="set_analysis_type"
+                    )
+
+                state_manager.update_context(request.conversationId, {"analysis_type": analysis_type})
+
+                # Row count always all_time
+                if analysis_type == "row_count":
+                    state_manager.update_context(request.conversationId, {"time_period": "all_time"})
+
+                updated_state = state_manager.get_state(request.conversationId)
+                updated_context = updated_state.get("context", {})
+
+                # If ready, generate SQL now (no extra "continue" round-trip needed)
+                if self._is_state_ready(updated_context):
+                    return await self._generate_sql_plan(request, catalog, updated_context)
+
+                return IntentAcknowledgmentResponse(intent=request.intent, value=request.value)
+
+            elif request.intent == "set_time_period":
+                state_manager.update_context(request.conversationId, {"time_period": raw_value})
+                updated_state = state_manager.get_state(request.conversationId)
+                updated_context = updated_state.get("context", {})
+                if self._is_state_ready(updated_context):
+                    return await self._generate_sql_plan(request, catalog, updated_context)
+                return IntentAcknowledgmentResponse(intent=request.intent, value=request.value)
+
+            # Unknown intent: acknowledge but don't break the flow
+            return IntentAcknowledgmentResponse(intent=request.intent, value=request.value)
+        # --- end intent handler ---
+
         # Store original message if this is the first message in the conversation
         if request.message and not state.get("original_message"):
             state_manager.update_state(request.conversationId, original_message=request.message)
