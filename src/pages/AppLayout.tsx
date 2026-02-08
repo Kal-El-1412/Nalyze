@@ -15,6 +15,8 @@ import { connectorApi, Dataset, ChatResponse, ApiError, DatasetCatalog, ReportSu
 import { copyToClipboard } from '../utils/reportGenerator';
 import { diagnostics } from '../services/diagnostics';
 import { getDatasetDefaults } from '../utils/datasetDefaults';
+import { notify } from '../utils/browserNotifications';
+import { loadTelegramSettings, sendJobCompletionNotification, sendErrorNotification, sendInsightsNotification, TelegramSettings } from '../utils/telegramNotifications';
 
 interface LocalDataset {
   id: string;
@@ -65,6 +67,16 @@ export default function AppLayout() {
   const [errorCount, setErrorCount] = useState(0);
   const [showDisconnectedBanner, setShowDisconnectedBanner] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [notifications, setNotifications] = useState({
+    jobComplete: true,
+    errors: true,
+    insights: true,
+  });
+  const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
+    botToken: '',
+    chatId: '',
+    notifyOnCompletion: false,
+  });
 
   const [resultsData, setResultsData] = useState({
     summary: '',
@@ -102,6 +114,18 @@ export default function AppLayout() {
       setAiAssist(savedAiAssist === 'true');
     }
 
+    const savedNotifications = localStorage.getItem('notifications');
+    if (savedNotifications) {
+      try {
+        setNotifications(JSON.parse(savedNotifications));
+      } catch (error) {
+        console.error('Failed to parse notifications:', error);
+      }
+    }
+
+    const savedTelegram = loadTelegramSettings();
+    setTelegramSettings(savedTelegram);
+
     const handleStorageChange = () => {
       const updatedPrivacyMode = localStorage.getItem('privacyMode');
       if (updatedPrivacyMode !== null) {
@@ -132,6 +156,27 @@ export default function AppLayout() {
           checkConnectorHealth();
         }
       }
+
+      const updatedPrivacySettings = localStorage.getItem('privacySettings');
+      if (updatedPrivacySettings) {
+        try {
+          setPrivacySettings(JSON.parse(updatedPrivacySettings));
+        } catch (error) {
+          console.error('Failed to parse privacy settings:', error);
+        }
+      }
+
+      const updatedNotifications = localStorage.getItem('notifications');
+      if (updatedNotifications) {
+        try {
+          setNotifications(JSON.parse(updatedNotifications));
+        } catch (error) {
+          console.error('Failed to parse notifications:', error);
+        }
+      }
+
+      const updatedTelegram = loadTelegramSettings();
+      setTelegramSettings(updatedTelegram);
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -139,6 +184,8 @@ export default function AppLayout() {
     window.addEventListener('safeModeChange', handleStorageChange);
     window.addEventListener('aiAssistChange', handleStorageChange);
     window.addEventListener('demoModeChange', handleStorageChange);
+    window.addEventListener('privacySettingsChange', handleStorageChange);
+    window.addEventListener('notificationsChange', handleStorageChange);
 
     const unsubscribe = diagnostics.subscribe((events) => {
       const errors = events.filter(e => e.type === 'error').length;
@@ -159,6 +206,8 @@ export default function AppLayout() {
       window.removeEventListener('safeModeChange', handleStorageChange);
       window.removeEventListener('aiAssistChange', handleStorageChange);
       window.removeEventListener('demoModeChange', handleStorageChange);
+      window.removeEventListener('privacySettingsChange', handleStorageChange);
+      window.removeEventListener('notificationsChange', handleStorageChange);
     };
   }, []);
 
@@ -345,7 +394,7 @@ export default function AppLayout() {
         } else {
           const errorDetails = `${ingestResult.error.method} ${ingestResult.error.url}\n${ingestResult.error.status} ${ingestResult.error.statusText}\n${ingestResult.error.message}`;
           diagnostics.error('Ingest', `Failed to ingest dataset: ${data.name}`, errorDetails);
-          setErrorToast(ingestResult.error);
+          showError(ingestResult.error);
         }
 
         await loadDatasetsFromConnector();
@@ -355,7 +404,7 @@ export default function AppLayout() {
         const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
         diagnostics.error('Dataset Registration', `Failed to register dataset: ${data.name}`, errorDetails);
 
-        setErrorToast(result.error);
+        showError(result.error);
 
         const newDataset: LocalDataset = {
           id: Date.now().toString(),
@@ -505,6 +554,75 @@ export default function AppLayout() {
     return undefined;
   };
 
+  const maskPIIInValue = (value: any): any => {
+    if (typeof value !== 'string') return value;
+
+    let masked = value;
+
+    masked = masked.replace(
+      /([a-zA-Z0-9._-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '***@$2'
+    );
+
+    masked = masked.replace(
+      /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{2}(\d{2})/g,
+      (match, prefix, lastTwo) => {
+        const maskedLength = match.length - 2;
+        return 'X'.repeat(maskedLength) + lastTwo;
+      }
+    );
+
+    return masked;
+  };
+
+  const applyPrivacyFiltering = (results: any[]): any[] => {
+    if (!privacySettings.allowSampleRows) {
+      return results.map(result => ({
+        ...result,
+        rows: [],
+      }));
+    }
+
+    return results.map(result => {
+      const limitedRows = result.rows.slice(0, 20);
+
+      if (!privacySettings.maskPII) {
+        return {
+          ...result,
+          rows: limitedRows,
+        };
+      }
+
+      const maskedRows = limitedRows.map((row: any[]) =>
+        row.map(cell => maskPIIInValue(cell))
+      );
+
+      return {
+        ...result,
+        rows: maskedRows,
+      };
+    });
+  };
+
+  const showError = (error: ApiError) => {
+    showError(error);
+
+    if (notifications.errors) {
+      const errorMessage = `${error.status} ${error.statusText}: ${error.message}`;
+      notify('Connector Error', errorMessage);
+
+      if (telegramSettings.botToken && telegramSettings.chatId) {
+        sendErrorNotification(
+          telegramSettings.botToken,
+          telegramSettings.chatId,
+          errorMessage
+        ).catch(err => {
+          console.error('Failed to send Telegram error notification:', err);
+        });
+      }
+    }
+  };
+
   const handleChatResponse = async (response: ChatResponse) => {
     // Store routing metadata for diagnostics
     if ((response as any).routing_metadata) {
@@ -584,7 +702,7 @@ export default function AppLayout() {
         } else {
           const errorDetails = `${result.error.method} ${result.error.url}\n${result.error.status} ${result.error.statusText}\n${result.error.message}`;
           diagnostics.error('Query Execution', 'Failed to execute queries', errorDetails);
-          setErrorToast(result.error);
+          showError(result.error);
 
           if (demoMode) {
             showToastMessage('Failed to execute queries. Using mock data.');
@@ -629,6 +747,7 @@ export default function AppLayout() {
 
       if (connectorStatus === 'connected') {
         try {
+          const filteredResults = applyPrivacyFiltering(queryResults.results);
           const result = await connectorApi.sendChatMessage({
             datasetId: activeDataset,
             conversationId,
@@ -636,7 +755,7 @@ export default function AppLayout() {
             privacyMode,
             safeMode,
             aiAssist,
-            resultsContext: { results: queryResults.results },
+            resultsContext: { results: filteredResults },
             defaultsContext: Object.keys(defaults).length > 0 ? defaults : undefined,
           });
 
@@ -732,6 +851,47 @@ export default function AppLayout() {
         console.log(`Report saved with ID: ${response.audit.reportId}`);
       }
       loadReports();
+
+      const dataset = datasets.find(d => d.id === activeDataset);
+      const datasetName = dataset?.name || 'dataset';
+
+      if (notifications.jobComplete) {
+        showToastMessage('Analysis complete');
+        notify('Analysis Complete', `Your analysis for ${datasetName} is ready.`);
+
+        if (telegramSettings.notifyOnCompletion && telegramSettings.botToken && telegramSettings.chatId) {
+          sendJobCompletionNotification(
+            telegramSettings.botToken,
+            telegramSettings.chatId,
+            datasetName
+          ).catch(error => {
+            console.error('Failed to send Telegram notification:', error);
+          });
+        }
+      }
+
+      if (notifications.insights) {
+        const insightKeywords = ['insight', 'anomaly', 'spike', 'outlier', 'unusual', 'significant'];
+        const summaryLower = response.summaryMarkdown.toLowerCase();
+        const hasInsights = insightKeywords.some(keyword => summaryLower.includes(keyword));
+        const hasAnomalies = response.audit?.anomalies && response.audit.anomalies.length > 0;
+
+        if (hasInsights || hasAnomalies) {
+          const shortSummary = response.summaryMarkdown.substring(0, 150);
+          notify('New Insights Found', `Interesting findings detected in ${datasetName}`);
+
+          if (telegramSettings.botToken && telegramSettings.chatId) {
+            sendInsightsNotification(
+              telegramSettings.botToken,
+              telegramSettings.chatId,
+              datasetName,
+              shortSummary
+            ).catch(error => {
+              console.error('Failed to send Telegram insights notification:', error);
+            });
+          }
+        }
+      }
     }
   };
 

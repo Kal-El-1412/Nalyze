@@ -68,6 +68,31 @@ export async function sendTestNotification(
   return sendTelegramMessage(botToken, chatId, message);
 }
 
+export async function sendErrorNotification(
+  botToken: string,
+  chatId: string,
+  errorMessage: string
+): Promise<{ success: boolean; error?: string }> {
+  const truncatedError = errorMessage.length > 200
+    ? errorMessage.substring(0, 200) + '...'
+    : errorMessage;
+  const message = `⚠️ <b>CloakedSheets AI - Error</b>\n\n${truncatedError}\n\nCheck the app for details.`;
+  return sendTelegramMessage(botToken, chatId, message);
+}
+
+export async function sendInsightsNotification(
+  botToken: string,
+  chatId: string,
+  datasetName: string,
+  shortSummary: string
+): Promise<{ success: boolean; error?: string }> {
+  const truncatedSummary = shortSummary.length > 150
+    ? shortSummary.substring(0, 150) + '...'
+    : shortSummary;
+  const message = `💡 <b>CloakedSheets AI - New Insights</b>\n\nDataset: <b>${datasetName}</b>\n\n${truncatedSummary}\n\nOpen the app to explore.`;
+  return sendTelegramMessage(botToken, chatId, message);
+}
+
 export function validateTelegramSettings(settings: TelegramSettings): {
   valid: boolean;
   errors: string[];

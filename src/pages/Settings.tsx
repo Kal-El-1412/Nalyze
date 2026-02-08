@@ -96,6 +96,8 @@ export default function Settings() {
     window.dispatchEvent(new Event('privacyModeChange'));
     window.dispatchEvent(new Event('safeModeChange'));
     window.dispatchEvent(new Event('demoModeChange'));
+    window.dispatchEvent(new Event('privacySettingsChange'));
+    window.dispatchEvent(new Event('notificationsChange'));
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
