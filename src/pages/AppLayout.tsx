@@ -848,12 +848,13 @@ export default function AppLayout() {
         auditLogEntries.push(`  SQL: ${query.sql}`);
       });
 
-      setResultsData({
-        summary: response.summaryMarkdown,
-        tableData: response.tables,
+      setResultsData(prev => ({
+        ...prev,
+        summary: response.summaryMarkdown || '',
+        tableData: response.tables || [],
         auditLog: auditLogEntries,
-        auditMetadata: response.audit,
-      });
+        auditMetadata: response.audit || null,
+      }));
 
       // Fetch updated reports list after final_answer
       if (response.audit.reportId) {
