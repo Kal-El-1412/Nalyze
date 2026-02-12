@@ -755,9 +755,7 @@ class ChatOrchestrator:
 
         elif analysis_type == "data_quality":
             if working_catalog:
-                all_columns = []
-                if working_catalog.get("tables") and len(working_catalog["tables"]) > 0:
-                    all_columns = working_catalog["tables"][0].get("columns", [])
+                all_columns = [c.name for c in working_catalog.columns] if getattr(working_catalog, "columns", None) else []
 
                 if all_columns:
                     # Count nulls for each column
