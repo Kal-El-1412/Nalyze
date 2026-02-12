@@ -11,6 +11,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 from app.storage import storage
 from app.pii_detector import pii_detector
 from app.config import config
+from app.models import Catalog
 
 logger = logging.getLogger(__name__)
 
@@ -408,14 +409,17 @@ class IngestionPipeline:
             logger.warning(f"Error getting text stats for {col_name}: {e}")
             return {"nullPct": 0, "approxDistinct": 0}
 
-    async def load_catalog(self, dataset_id: str) -> Dict[str, Any]:
+    async def load_catalog(self, dataset_id: str) -> Catalog:
         catalog_path = self.get_catalog_path(dataset_id)
 
         if not catalog_path.exists():
             raise FileNotFoundError(f"Catalog not found for dataset {dataset_id}")
 
         with open(catalog_path, 'r') as f:
-            return json.load(f)
+            data = json.load(f)
+
+        # Normalize to Catalog model (needed for PII redaction + column detection)
+        return Catalog(**data)
 
 
 ingestion_pipeline = IngestionPipeline()
