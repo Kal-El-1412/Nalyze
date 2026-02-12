@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, status, HTTPException, BackgroundTasks, Up
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 
 from app.models import (
     HealthResponse,
@@ -561,7 +562,13 @@ async def chat(request_data: Request):
     # Validate request contract
     try:
         request = ChatOrchestratorRequest(**body)
-    except ValueError as e:
+    except ValidationError as e:
+        # Return a clean 422 (not 500) so the UI can show the real problem
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
