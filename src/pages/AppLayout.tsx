@@ -17,6 +17,7 @@ import { diagnostics } from '../services/diagnostics';
 import { getDatasetDefaults } from '../utils/datasetDefaults';
 import { notify } from '../utils/browserNotifications';
 import { loadTelegramSettings, sendJobCompletionNotification, sendErrorNotification, sendInsightsNotification, TelegramSettings } from '../utils/telegramNotifications';
+import { getSavedThemePreference, setSavedThemePreference, ThemePreference } from '../utils/theme';
 
 interface LocalDataset {
   id: string;
@@ -88,15 +89,7 @@ export default function AppLayout() {
   const [lastRoutingMetadata, setLastRoutingMetadata] = useState<any>(null);
   const [showDatasetSummary, setShowDatasetSummary] = useState(false);
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
-  const [themePreference, setThemePreference] = useState<'system' | 'light' | 'dark'>(
-    (localStorage.getItem('themePreference') as any) || 'system'
-  );
-
-  const setTheme = (next: 'system' | 'light' | 'dark') => {
-    localStorage.setItem('themePreference', next);
-    setThemePreference(next);
-    window.dispatchEvent(new Event('themeChange'));
-  };
+  const [themePreference, setThemePreference] = useState<ThemePreference>(getSavedThemePreference());
 
   useEffect(() => {
     const savedDemoMode = localStorage.getItem('demoMode');
@@ -244,8 +237,7 @@ export default function AppLayout() {
 
     const handler = () => {
       compute();
-      const pref = (localStorage.getItem('themePreference') as any) || 'system';
-      setThemePreference(pref);
+      setThemePreference(getSavedThemePreference());
     };
     window.addEventListener('themeChange', handler);
     return () => window.removeEventListener('themeChange', handler);
@@ -1243,7 +1235,7 @@ export default function AppLayout() {
 
                 <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
                   <button
-                    onClick={() => setTheme('system')}
+                    onClick={() => setSavedThemePreference('system')}
                     className={`px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors
                       ${themePreference === 'system'
                         ? 'bg-slate-900 text-white dark:bg-slate-700'
@@ -1255,7 +1247,7 @@ export default function AppLayout() {
                   </button>
 
                   <button
-                    onClick={() => setTheme('light')}
+                    onClick={() => setSavedThemePreference('light')}
                     className={`px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors
                       ${themePreference === 'light'
                         ? 'bg-slate-900 text-white dark:bg-slate-700'
@@ -1267,7 +1259,7 @@ export default function AppLayout() {
                   </button>
 
                   <button
-                    onClick={() => setTheme('dark')}
+                    onClick={() => setSavedThemePreference('dark')}
                     className={`px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors
                       ${themePreference === 'dark'
                         ? 'bg-slate-900 text-white dark:bg-slate-700'

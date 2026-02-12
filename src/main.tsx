@@ -2,30 +2,19 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { applyTheme, getSavedThemePreference } from './utils/theme';
 
-function applyTheme(pref: 'system' | 'light' | 'dark') {
-  const root = document.documentElement;
-  const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
+applyTheme(getSavedThemePreference());
 
-  const shouldDark = pref === 'dark' || (pref === 'system' && systemDark);
-  root.classList.toggle('dark', shouldDark);
-}
-
-const saved = (localStorage.getItem('themePreference') as any) || 'system';
-applyTheme(saved);
-
+// If user chose "system", update theme live when OS theme changes
 if (window.matchMedia) {
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  mq.addEventListener?.('change', () => {
-    const pref = (localStorage.getItem('themePreference') as any) || 'system';
+  const handler = () => {
+    const pref = getSavedThemePreference();
     if (pref === 'system') applyTheme('system');
-  });
+  };
+  mq.addEventListener?.('change', handler);
 }
-
-window.addEventListener('themeChange', () => {
-  const pref = (localStorage.getItem('themePreference') as any) || 'system';
-  applyTheme(pref);
-});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
