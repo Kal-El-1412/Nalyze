@@ -256,6 +256,15 @@ export default function AppLayout() {
     try {
       const catalogData = await connectorApi.getDatasetCatalog(activeDataset);
       setCatalog(catalogData);
+
+      // Sync sidebar row count with catalog
+      if (catalogData?.rowCount !== undefined && catalogData?.rowCount !== null) {
+        setDatasets((prev) =>
+          prev.map((d) =>
+            d.id === activeDataset ? { ...d, rows: catalogData.rowCount } : d
+          )
+        );
+      }
     } catch (error) {
       console.error('Failed to load catalog:', error);
       setCatalog(null);
