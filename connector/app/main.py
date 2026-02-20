@@ -70,6 +70,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
@@ -78,9 +80,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(RateLimitMiddleware)
 
 
 @app.exception_handler(Exception)
