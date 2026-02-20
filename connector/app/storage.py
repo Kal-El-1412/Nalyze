@@ -104,9 +104,24 @@ class StorageManager:
 
     async def list_datasets(self) -> List[Dict[str, Any]]:
         registry = self._load_registry()
-        datasets = registry["datasets"]
-        datasets.sort(key=lambda x: x["createdAt"], reverse=True)
-        return datasets
+        cleaned = []
+        changed = False
+
+        for ds in registry.get("datasets", []):
+            fp = ds.get("filePath")
+            if fp and os.path.exists(fp):
+                cleaned.append(ds)
+            else:
+                changed = True
+
+        if changed:
+            stale_count = len(registry.get("datasets", [])) - len(cleaned)
+            registry["datasets"] = cleaned
+            self._save_registry(registry)
+            logger.info(f"Cleaned registry: removed {stale_count} stale datasets")
+
+        cleaned.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        return cleaned
 
     async def update_dataset(self, dataset_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         registry = self._load_registry()
