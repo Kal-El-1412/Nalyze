@@ -18,6 +18,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         correlation_id = str(uuid.uuid4())
 
         request.state.correlation_id = correlation_id
@@ -96,6 +99,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self.last_cleanup = current_time
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         if request.url.path == "/health":
             return await call_next(request)
 
