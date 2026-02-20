@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check, Shield, Sparkles } from 'lucide-react';
-import DatasetSummaryCard from './DatasetSummaryCard';
+import { Send, TrendingUp, AlertTriangle, BarChart3, Bot, User, Loader2, Code, Copy, Pin, Download, ChevronDown, LineChart, Activity, Users, Filter, FileText, Zap, Check, Sparkles } from 'lucide-react';
 import { DatasetCatalog } from '../services/connectorApi';
 import { saveDatasetDefault, inferDefaultKeyFromQuestion } from '../utils/datasetDefaults';
 
@@ -449,7 +448,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-950">
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 pb-32 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mb-4">
@@ -500,62 +499,6 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
       )}
 
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-        {activeDataset && catalog && datasetName && onShowDatasetSummary && (
-          <div className="mb-3 space-y-2">
-            <DatasetSummaryCard
-              catalog={catalog}
-              datasetName={datasetName}
-              onViewSchema={onShowDatasetSummary}
-              privacyMode={privacyMode}
-              safeMode={safeMode}
-            />
-            {safeMode && (
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">Safe Mode Active</p>
-                    <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
-                      Only aggregated queries allowed. Queries must use COUNT, SUM, AVG, MIN, MAX, or GROUP BY. Raw row data cannot be accessed.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className={`border rounded-lg p-3 ${
-              aiAssist
-                ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950 dark:to-purple-950 border-violet-200 dark:border-violet-800'
-                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
-            }`}>
-              <div className="flex items-start gap-2">
-                <Sparkles className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
-                  aiAssist ? 'text-violet-600' : 'text-slate-400'
-                }`} />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className={`text-xs font-semibold ${
-                      aiAssist ? 'text-violet-900 dark:text-violet-100' : 'text-slate-700 dark:text-slate-200'
-                    }`}>AI Assist Status</p>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                      aiAssist
-                        ? 'bg-violet-500 text-white'
-                        : 'bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
-                    }`}>
-                      {aiAssist ? 'ON' : 'OFF'}
-                    </span>
-                  </div>
-                  <p className={`text-xs leading-relaxed ${
-                    aiAssist ? 'text-violet-800 dark:text-violet-200' : 'text-slate-600 dark:text-slate-300'
-                  }`}>
-                    {aiAssist
-                      ? 'OpenAI intent extraction enabled. Can understand complex natural language queries.'
-                      : 'Using deterministic routing. Ask clear questions like "show me trends" or use button prompts.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
         <div className="flex gap-2 relative">
           <div className="relative" ref={templatesRef}>
             <button

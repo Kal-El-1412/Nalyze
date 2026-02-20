@@ -7,6 +7,7 @@ import ChatPanel from '../components/ChatPanel';
 import ResultsPanel from '../components/ResultsPanel';
 import ConnectDataModal from '../components/ConnectDataModal';
 import DatasetSummary from '../components/DatasetSummary';
+import DatasetSummaryDrawer from '../components/DatasetSummaryDrawer';
 import DisconnectedBanner from '../components/DisconnectedBanner';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErrorToast from '../components/ErrorToast';
@@ -1424,6 +1425,16 @@ export default function AppLayout() {
           </div>
         </div>
       </div>
+
+      {activeDataset && catalog && (
+        <DatasetSummaryDrawer
+          catalog={catalog}
+          datasetName={datasets.find(d => d.id === activeDataset)?.name}
+          privacyMode={privacyMode}
+          safeMode={safeMode}
+          onViewSchema={handleShowDatasetSummary}
+        />
+      )}
 
       <ConnectDataModal
         isOpen={showConnectModal}
