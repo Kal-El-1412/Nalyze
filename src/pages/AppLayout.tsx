@@ -215,7 +215,11 @@ export default function AppLayout() {
   }, []);
 
   useEffect(() => {
-    if (activeDataset && connectorStatus === 'connected') {
+    if (!activeDataset) {
+      setCatalog(null);
+      return;
+    }
+    if (connectorStatus === 'connected') {
       loadCatalog();
     } else {
       setCatalog(null);
@@ -257,17 +261,40 @@ export default function AppLayout() {
       const catalogData = await connectorApi.getDatasetCatalog(activeDataset);
       setCatalog(catalogData);
 
-      // Sync sidebar row count with catalog
+      // Sync row count into sidebar dataset list
       if (catalogData?.rowCount !== undefined && catalogData?.rowCount !== null) {
-        setDatasets((prev) =>
-          prev.map((d) =>
-            d.id === activeDataset ? { ...d, rows: catalogData.rowCount } : d
+        setDatasets(prev =>
+          prev.map(d =>
+            d.id === activeDataset
+              ? { ...d, rows: catalogData.rowCount }
+              : d
           )
         );
       }
-    } catch (error) {
-      console.error('Failed to load catalog:', error);
-      setCatalog(null);
+
+    } catch (err: any) {
+
+      // 🔴 If backend says dataset doesn't exist anymore
+      if (err?.status === 404) {
+        console.warn(
+          "Dataset not found on backend. Removing stale dataset from UI:",
+          activeDataset
+        );
+
+        // Remove stale dataset
+        setDatasets(prev => prev.filter(d => d.id !== activeDataset));
+
+        // Clear active dataset
+        setActiveDataset(null);
+
+        // Clear catalog
+        setCatalog(null);
+
+        // Prevent retry loop
+        return;
+      }
+
+      console.error("Failed to load catalog:", err);
     }
   };
 
@@ -346,7 +373,13 @@ export default function AppLayout() {
           lastUsed: ds.lastIngestedAt || ds.createdAt,
         }));
         setDatasets(localDatasets);
-        if (!activeDataset && localDatasets.length > 0) {
+
+        // If current active dataset no longer exists → reset
+        const exists = localDatasets.find(d => d.id === activeDataset);
+        if (activeDataset && !exists) {
+          setActiveDataset(null);
+          setCatalog(null);
+        } else if (!activeDataset && localDatasets.length > 0) {
           setActiveDataset(localDatasets[0].id);
         }
       } else {
