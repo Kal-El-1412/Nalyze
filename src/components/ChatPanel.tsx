@@ -448,7 +448,7 @@ export default function ChatPanel({ messages, onSendMessage, onClarificationResp
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-950">
-      <div className="flex-1 overflow-y-auto p-6 pb-32 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mb-4">
