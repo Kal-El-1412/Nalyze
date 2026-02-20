@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Key, Bell, Save, Eye, EyeOff, Wifi, ShieldCheck, Send, MessageSquare, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Key, Bell, Save, Eye, EyeOff, Wifi, ShieldCheck, Send, MessageSquare, PlayCircle, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { connectorApi } from '../services/connectorApi';
 import {
@@ -39,6 +39,8 @@ export default function Settings() {
     message: string;
   } | null>(null);
   const [themePreference, setThemePreference] = useState<'system' | 'light' | 'dark'>('system');
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem('apiKey');
@@ -137,6 +139,28 @@ export default function Settings() {
     });
 
     setTimeout(() => setTelegramTestResult(null), 5000);
+  };
+
+  const handleResetStorage = async () => {
+    if (!window.confirm('This will permanently delete all datasets and jobs from the connector. Continue?')) {
+      return;
+    }
+
+    setResetting(true);
+    setResetResult(null);
+
+    const result = await connectorApi.resetStorage();
+
+    setResetting(false);
+
+    if (result.success) {
+      setResetResult({ success: true, message: 'Connector storage reset successfully. Dataset list cleared.' });
+      window.dispatchEvent(new Event('datasetsReset'));
+    } else {
+      setResetResult({ success: false, message: result.error?.message || 'Failed to reset storage. Is the connector running?' });
+    }
+
+    setTimeout(() => setResetResult(null), 6000);
   };
 
   const handleToggleTelegram = (enabled: boolean) => {
@@ -569,6 +593,46 @@ export default function Settings() {
                 />
               </label>
             </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/50 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-50 dark:bg-red-950 rounded-lg flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Danger Zone</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Destructive actions — cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-900 dark:text-red-300">
+                <strong>Reset Connector Storage</strong> will permanently delete all registered datasets, ingested data files,
+                and job history from the local connector. The connector must be running for this to work.
+              </p>
+            </div>
+
+            <button
+              onClick={handleResetStorage}
+              disabled={resetting}
+              className="flex items-center gap-2 px-5 py-2.5 border-2 border-red-500 text-red-600 font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-950/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+              {resetting ? 'Resetting...' : 'Reset Connector Storage'}
+            </button>
+
+            {resetResult && (
+              <div
+                className={`mt-3 p-4 rounded-lg border text-sm font-medium ${
+                  resetResult.success
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
+                    : 'bg-red-50 border-red-200 text-red-900 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300'
+                }`}
+              >
+                {resetResult.message}
+              </div>
+            )}
           </div>
 
           <button

@@ -995,6 +995,31 @@ class ConnectorAPI {
     }
   }
 
+  async resetStorage(): Promise<ApiResult<{ ok: boolean }>> {
+    const url = `${this.baseUrl}/admin/reset`;
+    const method = 'POST';
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          ...this.getPrivacyHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        const error = await this.parseError(response, method, url);
+        return { success: false, error };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      const apiError = await this.handleApiError(error, method, url);
+      return { success: false, error: apiError };
+    }
+  }
+
   async fetchReportById(reportId: string): Promise<ApiResult<Report>> {
     try {
       const url = `${this.baseUrl}/reports/${reportId}`;

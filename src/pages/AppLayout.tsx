@@ -190,6 +190,13 @@ export default function AppLayout() {
     window.addEventListener('privacySettingsChange', handleStorageChange);
     window.addEventListener('notificationsChange', handleStorageChange);
 
+    const handleDatasetsReset = () => {
+      setDatasets([]);
+      setActiveDataset(null);
+      setCatalog(null);
+    };
+    window.addEventListener('datasetsReset', handleDatasetsReset);
+
     const unsubscribe = diagnostics.subscribe((events) => {
       const errors = events.filter(e => e.type === 'error').length;
       setErrorCount(errors);
@@ -211,6 +218,7 @@ export default function AppLayout() {
       window.removeEventListener('demoModeChange', handleStorageChange);
       window.removeEventListener('privacySettingsChange', handleStorageChange);
       window.removeEventListener('notificationsChange', handleStorageChange);
+      window.removeEventListener('datasetsReset', handleDatasetsReset);
     };
   }, []);
 

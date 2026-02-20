@@ -123,6 +123,29 @@ class StorageManager:
         cleaned.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
         return cleaned
 
+    async def reset_all(self):
+        import shutil
+        with self._lock:
+            if self.datasets_dir.exists():
+                for p in self.datasets_dir.glob("*"):
+                    if p.is_dir():
+                        shutil.rmtree(p, ignore_errors=True)
+                    else:
+                        try:
+                            p.unlink()
+                        except Exception:
+                            pass
+
+            if self.jobs_dir.exists():
+                for p in self.jobs_dir.glob("*"):
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
+
+            self._save_registry({"datasets": [], "jobs": {}})
+            logger.info("Storage reset complete")
+
     async def update_dataset(self, dataset_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         registry = self._load_registry()
 

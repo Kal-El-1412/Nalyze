@@ -624,6 +624,12 @@ async def chat(request_data: Request):
         )
 
 
+@app.post("/admin/reset")
+async def admin_reset():
+    await storage.reset_all()
+    return {"ok": True}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
