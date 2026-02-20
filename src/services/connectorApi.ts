@@ -317,13 +317,16 @@ class ConnectorAPI {
     method: string,
     url: string
   ): Promise<ApiError> {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
+    const msg = error instanceof Error ? error.message : String(error);
+
+    if (error instanceof TypeError) {
       return {
         status: 0,
         statusText: 'Network Error',
         url,
         method,
-        message: 'Cannot connect to connector. Is it running?',
+        message: `Fetch failed: ${msg}. This is usually CORS (preflight blocked), wrong connector URL, or the connector not running.`,
+        raw: msg,
       };
     }
 
@@ -332,7 +335,8 @@ class ConnectorAPI {
       statusText: 'Unknown Error',
       url,
       method,
-      message: error instanceof Error ? error.message : String(error),
+      message: msg,
+      raw: msg,
     };
   }
 
