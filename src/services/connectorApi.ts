@@ -222,17 +222,22 @@ export type ApiResult<T> =
   | { success: true; data: T }
   | { success: false; error: ApiError };
 
+const DEFAULT_CONNECTOR_URL = 'http://127.0.0.1:7337';
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+function getBaseUrl(): string {
+  const saved = localStorage.getItem('connectorUrl');
+  return normalizeBaseUrl(saved && saved.trim().length > 0 ? saved.trim() : DEFAULT_CONNECTOR_URL);
+}
+
 class ConnectorAPI {
-  private baseUrl: string;
   private isAvailable: boolean = false;
 
-  constructor() {
-    this.baseUrl = this.getBaseUrl();
-  }
-
-  private getBaseUrl(): string {
-    const saved = localStorage.getItem('connectorBaseUrl');
-    return saved || 'http://localhost:7337';
+  private get baseUrl(): string {
+    return getBaseUrl();
   }
 
   private getPrivacyMode(): boolean {
@@ -268,8 +273,7 @@ class ConnectorAPI {
   }
 
   setBaseUrl(url: string) {
-    this.baseUrl = url;
-    localStorage.setItem('connectorBaseUrl', url);
+    localStorage.setItem('connectorUrl', normalizeBaseUrl(url.trim()));
   }
 
   getConnectorUrl(): string {
@@ -568,6 +572,8 @@ class ConnectorAPI {
       const privacyMode = request.privacyMode !== undefined ? request.privacyMode : this.getPrivacyMode();
       const safeMode = request.safeMode !== undefined ? request.safeMode : this.getSafeMode();
       const aiAssist = request.aiAssist !== undefined ? request.aiAssist : this.getAiAssist();
+
+      console.log('[connectorApi] POST', url, request);
 
       diagnostics.info(
         'Chat API',

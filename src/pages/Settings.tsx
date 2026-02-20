@@ -14,7 +14,7 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [showBotToken, setShowBotToken] = useState(false);
-  const [connectorUrl, setConnectorUrl] = useState('http://localhost:7337');
+  const [connectorUrl, setConnectorUrl] = useState('http://127.0.0.1:7337');
   const [demoMode, setDemoMode] = useState(false);
   const [notifications, setNotifications] = useState({
     jobComplete: true,
@@ -46,7 +46,7 @@ export default function Settings() {
       setApiKey(savedApiKey);
     }
 
-    const savedUrl = localStorage.getItem('connectorBaseUrl');
+    const savedUrl = localStorage.getItem('connectorUrl');
     if (savedUrl) {
       setConnectorUrl(savedUrl);
     }
@@ -226,11 +226,11 @@ export default function Settings() {
                   type="text"
                   value={connectorUrl}
                   onChange={(e) => setConnectorUrl(e.target.value)}
-                  placeholder="http://localhost:7337"
+                  placeholder="http://127.0.0.1:7337"
                   className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                 />
                 <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-2">
-                  The URL where your local connector is running (default: http://localhost:7337)
+                  The URL where your local connector is running (default: http://127.0.0.1:7337)
                 </p>
               </div>
             </div>
