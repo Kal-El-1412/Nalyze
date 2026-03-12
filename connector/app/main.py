@@ -240,7 +240,8 @@ async def upload_dataset(
     uploads_dir = os.path.join(temp_dir, "cloaksheets_uploads")
     os.makedirs(uploads_dir, exist_ok=True)
 
-    temp_file_path = os.path.join(uploads_dir, f"{name}_{file.filename}")
+    safe_filename = os.path.basename(file.filename or "upload")
+    temp_file_path = os.path.join(uploads_dir, f"{name}_{safe_filename}")
 
     try:
         with open(temp_file_path, "wb") as buffer:
@@ -367,6 +368,10 @@ async def ingest_dataset(dataset_id: str, background_tasks: BackgroundTasks, for
         job_type="ingest",
         status="queued"
     )
+
+    # Invalidate any cached DuckDB connection for this dataset so queries
+    # after re-ingestion open the new database file, not the old one.
+    query_executor.close_connection(dataset_id)
 
     background_tasks.add_task(
         ingestion_pipeline.ingest,
@@ -519,7 +524,7 @@ async def get_pii_info(dataset_id: str):
 
     try:
         catalog = await ingestion_pipeline.load_catalog(dataset_id)
-        pii_columns = catalog.get("piiColumns", [])
+        pii_columns = catalog.piiColumns
 
         return PIIInfoResponse(
             datasetId=dataset_id,
@@ -636,7 +641,19 @@ async def chat(request_data: Request):
 
 
 @app.post("/admin/reset")
-async def admin_reset():
+async def admin_reset(request: Request):
+    admin_token = os.environ.get("ADMIN_TOKEN")
+    if not admin_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin reset is disabled. Set ADMIN_TOKEN environment variable to enable."
+        )
+    provided_token = request.headers.get("X-Admin-Token", "")
+    if provided_token != admin_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid admin token."
+        )
     await storage.reset_all()
     return {"ok": True}
 

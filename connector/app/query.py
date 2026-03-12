@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import signal
 import time
@@ -94,47 +95,79 @@ class QueryExecutor:
 
         try:
             if file_extension == '.csv':
+                safe_path = file_path.replace("'", "''")
                 conn.execute(f"""
                     CREATE TABLE data AS
-                    SELECT * FROM read_csv_auto('{file_path}',
+                    SELECT * FROM read_csv_auto('{safe_path}',
                         header=true,
                         auto_detect=true,
                         ignore_errors=true)
                 """)
                 logger.info(f"Loaded CSV file into DuckDB: {file_path}")
             elif file_extension in ['.xlsx', '.xls']:
+                import tempfile
+                import csv
+
+                tmp_path = None
                 try:
-                    import openpyxl
-                    import tempfile
-                    import csv
+                    if file_extension == '.xlsx':
+                        import openpyxl
+                        wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+                        # Use shared sheet selection logic (consistent with ingest_pipeline)
+                        sheet = ingestion_pipeline._select_best_sheet(wb)
+                        rows_iter = sheet.iter_rows(values_only=True)
+                    else:  # .xls — legacy format requires xlrd
+                        import xlrd as _xlrd
+                        wb_xls = _xlrd.open_workbook(file_path)
+                        sheet_xls = wb_xls.sheet_by_index(0)
+                        datemode = wb_xls.datemode
 
-                    wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-                    ws = wb.active
+                        def _xlrd_rows(sheet, datemode):
+                            for row_idx in range(sheet.nrows):
+                                row = []
+                                for cell in sheet.row(row_idx):
+                                    if cell.ctype in (_xlrd.XL_CELL_EMPTY, _xlrd.XL_CELL_BLANK):
+                                        row.append(None)
+                                    elif cell.ctype == _xlrd.XL_CELL_DATE:
+                                        try:
+                                            dt = _xlrd.xldate.xldate_as_datetime(cell.value, datemode)
+                                            row.append(str(dt))
+                                        except Exception:
+                                            row.append(str(cell.value))
+                                    elif cell.ctype == _xlrd.XL_CELL_NUMBER and cell.value == int(cell.value):
+                                        row.append(str(int(cell.value)))
+                                    else:
+                                        row.append(cell.value)
+                                yield tuple(row)
 
-                    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='') as tmp_file:
+                        rows_iter = _xlrd_rows(sheet_xls, datemode)
+                        wb = wb_xls  # unified close reference
+
+                    with tempfile.NamedTemporaryFile(
+                        mode='w', delete=False, suffix='.csv', newline=''
+                    ) as tmp_file:
                         csv_writer = csv.writer(tmp_file)
-                        for row in ws.iter_rows(values_only=True):
+                        for row in rows_iter:
                             csv_writer.writerow(row)
                         tmp_path = tmp_file.name
 
-                    wb.close()
+                    if file_extension == '.xlsx':
+                        wb.close()
 
+                    safe_tmp = tmp_path.replace("'", "''")
                     conn.execute(f"""
                         CREATE TABLE data AS
-                        SELECT * FROM read_csv_auto('{tmp_path}',
+                        SELECT * FROM read_csv_auto('{safe_tmp}',
                             header=true,
                             auto_detect=true,
                             ignore_errors=true)
                     """)
-
-                    import os
-                    os.unlink(tmp_path)
-
                     logger.info(f"Loaded Excel file into DuckDB: {file_path}")
-                except ImportError:
-                    raise ValueError("Excel file support requires openpyxl. Please install it or use CSV files.")
+                finally:
+                    if tmp_path and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
             else:
-                raise ValueError(f"Unsupported file format: {file_extension}. Only CSV and XLSX are supported.")
+                raise ValueError(f"Unsupported file format: {file_extension}. Only CSV, XLSX, and XLS are supported.")
         except Exception as e:
             logger.error(f"Failed to load file {file_path}: {e}")
             raise ValueError(f"Failed to load file: {str(e)}")
@@ -275,7 +308,7 @@ class QueryExecutor:
 
         total_rows = conn.execute("SELECT COUNT(*) FROM data").fetchone()[0]
 
-        actual_limit = min(limit, self.max_rows)
+        actual_limit = min(limit, self.max_rows_per_query)
         sql = f"SELECT * FROM data LIMIT {actual_limit}"
 
         result = conn.execute(sql).fetchall()

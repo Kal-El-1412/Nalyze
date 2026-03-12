@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 import duckdb
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
+import xlrd
 
 from app.storage import storage
 from app.pii_detector import pii_detector
@@ -75,9 +76,10 @@ class IngestionPipeline:
             )
 
             logger.info(f"Loading CSV from {file_path} into DuckDB")
+            safe_path = file_path.replace("'", "''")
             conn.execute(f"""
                 CREATE TABLE data AS
-                SELECT * FROM read_csv_auto('{file_path}',
+                SELECT * FROM read_csv_auto('{safe_path}',
                     sample_size=-1,
                     ignore_errors=false,
                     auto_detect=true
@@ -163,19 +165,25 @@ class IngestionPipeline:
 
             conn = duckdb.connect(str(db_path))
 
-            logger.info(f"Loading XLSX from {file_path}")
-            wb = load_workbook(filename=file_path, read_only=True, data_only=True)
-
-            sheet = self._select_best_sheet(wb)
-            logger.info(f"Selected sheet: {sheet.title}")
+            ext = self._get_file_extension(file_path)
+            logger.info(f"Loading Excel file from {file_path} (ext={ext})")
 
             await storage.update_job(
                 job_id=job_id,
                 stage="ingesting_rows"
             )
 
-            self._ingest_sheet_to_duckdb(conn, sheet)
-            wb.close()
+            if ext == '.xls':
+                wb_xls = xlrd.open_workbook(file_path)
+                self._ingest_xls_to_duckdb(conn, wb_xls)
+            else:
+                wb = load_workbook(filename=file_path, read_only=True, data_only=True)
+                sheet = self._select_best_sheet(wb)
+                logger.info(f"Selected sheet: {sheet.title}")
+                self._ingest_sheet_to_duckdb(conn, sheet)
+                wb.close()
+
+            self._apply_type_inference(conn)
 
             await storage.update_job(
                 job_id=job_id,
@@ -224,7 +232,8 @@ class IngestionPipeline:
                 error=str(e)
             )
 
-    def _select_best_sheet(self, workbook):
+    @staticmethod
+    def _select_best_sheet(workbook):
         if not workbook.sheetnames:
             raise ValueError("Workbook contains no sheets")
 
@@ -233,6 +242,12 @@ class IngestionPipeline:
             if hasattr(sheet, 'tables') and sheet.tables:
                 logger.info(f"Found named table in sheet: {sheet_name}")
                 return sheet
+
+        if len(workbook.sheetnames) > 1:
+            logger.info(
+                f"Workbook has {len(workbook.sheetnames)} sheets "
+                f"({', '.join(workbook.sheetnames)}); using first sheet."
+            )
 
         first_sheet = workbook[workbook.sheetnames[0]]
         return first_sheet
@@ -282,6 +297,99 @@ class IngestionPipeline:
             logger.info(f"Inserted final chunk of {len(chunk)} rows (total: {row_count})")
 
         logger.info(f"Total rows inserted: {row_count}")
+
+    def _ingest_xls_to_duckdb(self, conn: duckdb.DuckDBPyConnection, wb):
+        """Ingest a legacy .xls workbook (xlrd) into DuckDB as VARCHAR, ready for type inference."""
+        if wb.nsheets == 0:
+            raise ValueError("Workbook contains no sheets")
+
+        # Pick the sheet with the most rows as a heuristic
+        sheet = wb.sheet_by_index(0)
+        for i in range(1, wb.nsheets):
+            candidate = wb.sheet_by_index(i)
+            if candidate.nrows > sheet.nrows:
+                sheet = candidate
+        logger.info(f"Selected .xls sheet: '{sheet.name}' ({sheet.nrows} rows, {sheet.ncols} cols)")
+
+        if sheet.nrows == 0:
+            raise ValueError("Sheet is empty or has no data")
+
+        header_row = sheet.row_values(0)
+        headers = []
+        for idx, cell in enumerate(header_row):
+            val = str(cell).strip() if cell is not None else ""
+            headers.append(val if val else f"column_{idx + 1}")
+        logger.info(f"Detected {len(headers)} columns: {headers[:5]}...")
+
+        conn.execute("CREATE TABLE data (" + ", ".join([f'"{h}" VARCHAR' for h in headers]) + ")")
+
+        datemode = wb.datemode
+        chunk = []
+        row_count = 0
+
+        for row_idx in range(1, sheet.nrows):
+            row = sheet.row(row_idx)
+            if all(cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK) for cell in row):
+                continue
+
+            cleaned_row = []
+            for cell in row:
+                if cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                    cleaned_row.append(None)
+                elif cell.ctype == xlrd.XL_CELL_DATE:
+                    try:
+                        dt = xlrd.xldate.xldate_as_datetime(cell.value, datemode)
+                        cleaned_row.append(str(dt))
+                    except Exception:
+                        cleaned_row.append(str(cell.value))
+                elif cell.ctype == xlrd.XL_CELL_NUMBER and cell.value == int(cell.value):
+                    cleaned_row.append(str(int(cell.value)))
+                else:
+                    cleaned_row.append(str(cell.value) if cell.value is not None else None)
+
+            chunk.append(cleaned_row)
+            row_count += 1
+
+            if len(chunk) >= self.chunk_size:
+                self._insert_chunk(conn, headers, chunk)
+                logger.info(f"Inserted chunk of {len(chunk)} rows (total: {row_count})")
+                chunk = []
+
+        if chunk:
+            self._insert_chunk(conn, headers, chunk)
+            logger.info(f"Inserted final chunk of {len(chunk)} rows (total: {row_count})")
+
+        logger.info(f"Total .xls rows inserted: {row_count}")
+
+    def _apply_type_inference(self, conn: duckdb.DuckDBPyConnection):
+        """Re-type Excel columns by round-tripping through DuckDB CSV auto-detection.
+
+        All Excel columns start as VARCHAR. This exports to a temp CSV and re-reads
+        with auto_detect=true so numeric, date, and boolean columns get proper types.
+        Falls back silently if it fails (keeps VARCHAR columns).
+        """
+        import tempfile
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+                tmp_path = tmp.name
+            safe_tmp = tmp_path.replace("'", "''")
+            conn.execute(f"COPY data TO '{safe_tmp}' (HEADER, DELIMITER ',')")
+            conn.execute("DROP TABLE data")
+            conn.execute(f"""
+                CREATE TABLE data AS
+                SELECT * FROM read_csv_auto('{safe_tmp}',
+                    header=true,
+                    auto_detect=true,
+                    sample_size=-1
+                )
+            """)
+            logger.info("Type inference complete: Excel columns retyped via CSV round-trip")
+        except Exception as e:
+            logger.warning(f"Type inference failed, keeping VARCHAR columns: {e}")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     def _insert_chunk(self, conn: duckdb.DuckDBPyConnection, headers: List[str], chunk: List[List]):
         placeholders = ", ".join(["?" for _ in headers])
